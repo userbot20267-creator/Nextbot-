@@ -49,9 +49,9 @@ from utils import broadcast_message
     # إدارة القنوات
     WAITING_CHANNEL_USERNAME,
     WAITING_CHANNEL_DELETE_CONFIRM,
-) = range(14)
-
-
+    # بحث وإضافة كتاب خارجي
+    WAITING_SEARCH_ADD_BOOK,          # <-- تأكد من وجود هذا السطر
+) = range(15)                         # <-- تأكد أن الرقم 15 (عدد الحالات)
 # ---------- دوال مساعدة للتحقق من الصلاحية ----------
 def is_admin(update: Update) -> bool:
     """التحقق من أن المستخدم هو المالك"""
