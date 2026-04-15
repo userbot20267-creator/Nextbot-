@@ -1,5 +1,6 @@
 # handlers/admin.py
-
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from services.scraper import search_external_books
 from telegram import Update
 from telegram.ext import (
     CommandHandler,
@@ -606,7 +607,87 @@ admin_channel_conv = ConversationHandler(
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
 )
+# ---------- بحث خارجي وإضافة كتاب للمالك ----------
 
+async def admin_search_add_book_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if not await admin_only(update): return ConversationHandler.END
+    await query.edit_message_text(
+        "🔍 *أرسل اسم الكتاب + المؤلف للبحث عنه:*\n\n"
+        "سيتم البحث في المصادر الخارجية وعرض النتائج لاختيار ما تريد إضافته.",
+        reply_markup=cancel_only_keyboard(),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_SEARCH_ADD_BOOK
+
+async def admin_search_add_book_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query_text = update.message.text.strip()
+    await update.message.reply_text("🔎 *جاري البحث في المصادر الخارجية...*", parse_mode=ParseMode.MARKDOWN)
+    results = await search_external_books(query_text, limit=5)
+    if not results:
+        await update.message.reply_text("❌ لم يتم العثور على نتائج.", reply_markup=admin_panel_keyboard())
+        return ConversationHandler.END
+    context.user_data["search_results"] = results
+    context.user_data["result_index"] = 0
+    title, author, link = results[0]
+    keyboard = [
+        [InlineKeyboardButton("➕ إضافة هذا الكتاب", callback_data="add_search_result")],
+        [InlineKeyboardButton("➡️ التالي", callback_data="next_search_result")],
+        [InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")],
+    ]
+    await update.message.reply_text(
+        f"📖 *{title}*\n✍️ {author}\n🔗 {link}\n\nالنتيجة 1 من {len(results)}",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_SEARCH_ADD_BOOK
+
+async def admin_search_result_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    results = context.user_data.get("search_results", [])
+    index = context.user_data.get("result_index", 0)
+    if query.data == "next_search_result":
+        index = (index + 1) % len(results)
+        context.user_data["result_index"] = index
+        title, author, link = results[index]
+        keyboard = [
+            [InlineKeyboardButton("➕ إضافة هذا الكتاب", callback_data="add_search_result")],
+            [InlineKeyboardButton("➡️ التالي", callback_data="next_search_result")],
+            [InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")],
+        ]
+        await query.edit_message_text(
+            f"📖 *{title}*\n✍️ {author}\n🔗 {link}\n\nالنتيجة {index + 1} من {len(results)}",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.MARKDOWN
+        )
+    elif query.data == "add_search_result":
+        title, author, link = results[index]
+        cat_id = ensure_uncategorized_category()
+        success, author_id = db.add_author(author, cat_id)
+        if not success:
+            authors = db.get_authors_by_category(cat_id)
+            author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
+        if author_id:
+            db.add_book(title, author_id, file_link=link, added_by=ADMIN_ID)
+        await query.edit_message_text("✅ تمت إضافة الكتاب بنجاح.", reply_markup=admin_panel_keyboard())
+        return ConversationHandler.END
+    return WAITING_SEARCH_ADD_BOOK
+    # ... نهاية الدوال التي أضفتها ...
+
+# ⬇️⬇️⬇️ أضف هذا الكود هنا ⬇️⬇️⬇️
+# محادثة بحث خارجي وإضافة كتاب
+admin_search_add_conv = ConversationHandler(
+    entry_points=[CallbackQueryHandler(admin_search_add_book_start, pattern="^admin_search_add_book$")],
+    states={
+        WAITING_SEARCH_ADD_BOOK: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, admin_search_add_book_receive),
+            CallbackQueryHandler(admin_search_result_navigation, pattern="^(next_search_result|add_search_result)$"),
+        ],
+    },
+    fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
+)
 # تجميع جميع المحادثات في قائمة واحدة لسهولة التسجيل
 admin_conversation_handlers = [
     admin_category_conv,
@@ -614,4 +695,5 @@ admin_conversation_handlers = [
     admin_user_ban_conv,
     admin_broadcast_conv,
     admin_channel_conv,
+    admin_search_add_conv,
 ]
