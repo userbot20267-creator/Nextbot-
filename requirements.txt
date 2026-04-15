@@ -4,7 +4,7 @@
 python-telegram-bot[job-queue]==20.7
 
 # الاتصال بقاعدة بيانات PostgreSQL
-psycopg2-binary==2.9.9
+psycopg[binary]==3.2.1
 
 # تحميل المتغيرات البيئية من ملف .env
 python-dotenv==1.0.0
