@@ -1,6 +1,9 @@
 # main.py
 
+import os
 import logging
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -30,7 +33,22 @@ from handlers.user import (
     feedback_conversation_handler,
 )
 
-# إعداد التسجيل (Logging)
+# ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "✅ Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
+
+# تشغيل Flask في خيط منفصل
+flask_thread = threading.Thread(target=run_flask, daemon=True)
+flask_thread.start()
+
+# ---------- إعداد التسجيل (Logging) ----------
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
@@ -43,7 +61,6 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """تسجيل الأخطاء وإرسال تنبيه للمالك عند حدوث خطأ غير متوقع"""
     logger.error(msg="حدث خطأ أثناء معالجة تحديث:", exc_info=context.error)
 
-    # إرسال تنبيه للمالك (اختياري)
     if update and update.effective_user:
         error_message = (
             f"⚠️ *تنبيه خطأ في البوت*\n\n"
@@ -65,10 +82,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def post_init(application: Application) -> None:
     """تُنفذ بعد تهيئة التطبيق مباشرة"""
     logger.info("✅ تم تهيئة البوت بنجاح")
-    # تهيئة قاعدة البيانات
     db.init_db()
     logger.info("✅ تم التحقق من جداول قاعدة البيانات")
-    # إرسال رسالة للمالك بأن البوت يعمل
     try:
         await application.bot.send_message(
             chat_id=ADMIN_ID,
@@ -82,45 +97,34 @@ async def post_init(application: Application) -> None:
 # ---------- الدالة الرئيسية ----------
 def main() -> None:
     """تشغيل البوت"""
-    # إنشاء التطبيق
     application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
-    # --- تسجيل أوامر المستخدم الأساسية ---
     application.add_handler(start_handler)
     for handler in user_command_handlers:
         application.add_handler(handler)
 
-    # --- تسجيل معالجات Callback الأساسية (من start) ---
     for handler in start_callback_handlers:
         application.add_handler(handler)
 
-    # --- تسجيل معالجات التصفح (browse) ---
     for handler in browse_handlers:
         application.add_handler(handler)
 
-    # --- تسجيل معالجات الاشتراك الإجباري ---
     for handler in subscription_handlers:
         application.add_handler(handler)
 
-    # --- تسجيل محادثة البحث ---
     application.add_handler(search_conversation_handler)
     for handler in search_callback_handlers:
         application.add_handler(handler)
 
-    # --- تسجيل لوحة تحكم المالك ---
     application.add_handler(admin_handler)
     for handler in admin_callback_handlers:
         application.add_handler(handler)
     for conv_handler in admin_conversation_handlers:
         application.add_handler(conv_handler)
 
-    # --- تسجيل محادثة التغذية الراجعة (feedback) ---
     application.add_handler(feedback_conversation_handler)
-
-    # --- تسجيل معالج الأخطاء العام ---
     application.add_error_handler(error_handler)
 
-    # --- بدء البوت (Polling) ---
     logger.info("🚀 جاري تشغيل البوت...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
