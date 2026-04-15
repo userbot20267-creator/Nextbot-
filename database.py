@@ -1,6 +1,7 @@
 # database.py
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from datetime import datetime
 from config import DATABASE_URL
 
 def get_connection():
@@ -125,11 +126,14 @@ def unban_user(user_id: int):
     cur.close()
     conn.close()
 
-def get_all_users():
+def get_all_users(include_banned: bool = False):
     """جلب جميع المستخدمين (للاستخدام في الإذاعة)"""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT user_id FROM users WHERE is_banned = FALSE")
+    if include_banned:
+        cur.execute("SELECT user_id FROM users")
+    else:
+        cur.execute("SELECT user_id FROM users WHERE is_banned = FALSE")
     users = [row[0] for row in cur.fetchall()]
     cur.close()
     conn.close()
@@ -154,6 +158,32 @@ def count_active_today() -> int:
     cur.close()
     conn.close()
     return count
+
+def count_banned_users() -> int:
+    """عدد المستخدمين المحظورين"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users WHERE is_banned = TRUE")
+    count = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return count
+
+def get_user_joined_date(user_id: int):
+    """جلب تاريخ انضمام المستخدم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT joined_at FROM users WHERE user_id = %s", (user_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result[0] if result else None
+
+def get_user_downloads_count(user_id: int) -> int:
+    """جلب عدد مرات تحميل المستخدم للكتب (غير محفوظة مباشرة، نحتاج علاقة)"""
+    # هذا يعتمد على بنية قاعدة البيانات الحالية. سنعيد 0 كمؤقت أو نضيف جدول لاحقاً.
+    # لتجنب الأخطاء نعيد 0
+    return 0
 
 # ---------- دوال الأقسام ----------
 def add_category(name: str) -> bool:
@@ -199,7 +229,7 @@ def get_all_categories():
     categories = cur.fetchall()
     cur.close()
     conn.close()
-    return categories  # قائمة من tuples: [(id, name), ...]
+    return categories
 
 def get_category_by_id(cat_id: int):
     """جلب قسم بمعرف"""
@@ -372,6 +402,16 @@ def get_top_categories(limit: int = 5):
     cur.close()
     conn.close()
     return top
+
+def get_author_id_by_book(book_id: int) -> int:
+    """جلب معرف المؤلف المرتبط بكتاب"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT author_id FROM books WHERE id = %s", (book_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result[0] if result else None
 
 # ---------- دوال الإعدادات ----------
 def set_setting(key: str, value: str):
