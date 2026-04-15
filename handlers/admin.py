@@ -48,7 +48,7 @@ from utils import broadcast_message
     # إدارة القنوات
     WAITING_CHANNEL_USERNAME,
     WAITING_CHANNEL_DELETE_CONFIRM,
-) = range(15)
+) = range(14)
 
 
 # ---------- دوال مساعدة للتحقق من الصلاحية ----------
