@@ -119,6 +119,7 @@ def admin_panel_keyboard():
         [InlineKeyboardButton("👥 إدارة المستخدمين", callback_data="admin_users")],
         [InlineKeyboardButton("📊 الإحصائيات", callback_data="admin_stats")],
         [InlineKeyboardButton("📣 إذاعة رسالة", callback_data="admin_broadcast")],
+        [InlineKeyboardButton("🔍 بحث وإضافة كتاب", callback_data="admin_search_add_book")],
         [InlineKeyboardButton("❌ إغلاق", callback_data="admin_close")]
     ]
     return InlineKeyboardMarkup(keyboard)
