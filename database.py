@@ -1,12 +1,12 @@
 # database.py
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 from datetime import datetime
 from config import DATABASE_URL
 
 def get_connection():
     """إنشاء وإرجاع اتصال بقاعدة البيانات"""
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
 # ---------- تهيئة الجداول ----------
 def init_db():
@@ -106,7 +106,7 @@ def is_user_banned(user_id: int) -> bool:
     result = cur.fetchone()
     cur.close()
     conn.close()
-    return result[0] if result else False
+    return result['is_banned'] if result else False
 
 def ban_user(user_id: int):
     """حظر مستخدم"""
@@ -134,7 +134,7 @@ def get_all_users(include_banned: bool = False):
         cur.execute("SELECT user_id FROM users")
     else:
         cur.execute("SELECT user_id FROM users WHERE is_banned = FALSE")
-    users = [row[0] for row in cur.fetchall()]
+    users = [row['user_id'] for row in cur.fetchall()]
     cur.close()
     conn.close()
     return users
@@ -143,8 +143,8 @@ def count_users() -> int:
     """إجمالي عدد المستخدمين"""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM users")
-    count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as cnt FROM users")
+    count = cur.fetchone()['cnt']
     cur.close()
     conn.close()
     return count
@@ -153,8 +153,8 @@ def count_active_today() -> int:
     """عدد المستخدمين النشطين اليوم"""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM users WHERE DATE(last_activity) = CURRENT_DATE")
-    count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as cnt FROM users WHERE DATE(last_activity) = CURRENT_DATE")
+    count = cur.fetchone()['cnt']
     cur.close()
     conn.close()
     return count
@@ -163,8 +163,8 @@ def count_banned_users() -> int:
     """عدد المستخدمين المحظورين"""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM users WHERE is_banned = TRUE")
-    count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as cnt FROM users WHERE is_banned = TRUE")
+    count = cur.fetchone()['cnt']
     cur.close()
     conn.close()
     return count
@@ -177,12 +177,10 @@ def get_user_joined_date(user_id: int):
     result = cur.fetchone()
     cur.close()
     conn.close()
-    return result[0] if result else None
+    return result['joined_at'] if result else None
 
 def get_user_downloads_count(user_id: int) -> int:
-    """جلب عدد مرات تحميل المستخدم للكتب (غير محفوظة مباشرة، نحتاج علاقة)"""
-    # هذا يعتمد على بنية قاعدة البيانات الحالية. سنعيد 0 كمؤقت أو نضيف جدول لاحقاً.
-    # لتجنب الأخطاء نعيد 0
+    """جلب عدد مرات تحميل المستخدم للكتب (مؤقت)"""
     return 0
 
 # ---------- دوال الأقسام ----------
@@ -196,7 +194,7 @@ def add_category(name: str) -> bool:
         cur.close()
         conn.close()
         return True
-    except psycopg2.errors.UniqueViolation:
+    except psycopg.errors.UniqueViolation:
         return False
 
 def delete_category(cat_id: int):
@@ -218,7 +216,7 @@ def update_category(cat_id: int, new_name: str) -> bool:
         cur.close()
         conn.close()
         return True
-    except psycopg2.errors.UniqueViolation:
+    except psycopg.errors.UniqueViolation:
         return False
 
 def get_all_categories():
@@ -226,7 +224,7 @@ def get_all_categories():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, name FROM categories ORDER BY name")
-    categories = cur.fetchall()
+    categories = [(row['id'], row['name']) for row in cur.fetchall()]
     cur.close()
     conn.close()
     return categories
@@ -236,10 +234,10 @@ def get_category_by_id(cat_id: int):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, name FROM categories WHERE id = %s", (cat_id,))
-    cat = cur.fetchone()
+    row = cur.fetchone()
     cur.close()
     conn.close()
-    return cat
+    return (row['id'], row['name']) if row else None
 
 # ---------- دوال المؤلفين ----------
 def add_author(name: str, category_id: int) -> tuple:
@@ -248,12 +246,12 @@ def add_author(name: str, category_id: int) -> tuple:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("INSERT INTO authors (name, category_id) VALUES (%s, %s) RETURNING id", (name, category_id))
-        author_id = cur.fetchone()[0]
+        author_id = cur.fetchone()['id']
         conn.commit()
         cur.close()
         conn.close()
         return True, author_id
-    except psycopg2.errors.UniqueViolation:
+    except psycopg.errors.UniqueViolation:
         return False, None
 
 def get_authors_by_category(category_id: int):
@@ -261,7 +259,7 @@ def get_authors_by_category(category_id: int):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, name FROM authors WHERE category_id = %s ORDER BY name", (category_id,))
-    authors = cur.fetchall()
+    authors = [(row['id'], row['name']) for row in cur.fetchall()]
     cur.close()
     conn.close()
     return authors
@@ -271,10 +269,10 @@ def get_author_by_id(author_id: int):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT id, name, category_id FROM authors WHERE id = %s", (author_id,))
-    author = cur.fetchone()
+    row = cur.fetchone()
     cur.close()
     conn.close()
-    return author
+    return (row['id'], row['name'], row['category_id']) if row else None
 
 def delete_author(author_id: int):
     """حذف مؤلف"""
@@ -295,7 +293,7 @@ def add_book(title: str, author_id: int, file_id: str = None, file_link: str = N
         VALUES (%s, %s, %s, %s, %s)
         RETURNING id
     """, (title, author_id, file_id, file_link, added_by))
-    book_id = cur.fetchone()[0]
+    book_id = cur.fetchone()['id']
     conn.commit()
     cur.close()
     conn.close()
@@ -310,7 +308,7 @@ def get_books_by_author(author_id: int):
         FROM books WHERE author_id = %s
         ORDER BY title
     """, (author_id,))
-    books = cur.fetchall()
+    books = [(row['id'], row['title'], row['file_id'], row['file_link'], row['download_count']) for row in cur.fetchall()]
     cur.close()
     conn.close()
     return books
@@ -327,10 +325,13 @@ def get_book_by_id(book_id: int):
         JOIN categories c ON a.category_id = c.id
         WHERE b.id = %s
     """, (book_id,))
-    book = cur.fetchone()
+    row = cur.fetchone()
     cur.close()
     conn.close()
-    return book
+    if row:
+        return (row['id'], row['title'], row['file_id'], row['file_link'], 
+                row['download_count'], row['author_name'], row['category_name'])
+    return None
 
 def delete_book(book_id: int):
     """حذف كتاب"""
@@ -364,7 +365,10 @@ def search_books(query: str):
         ORDER BY b.title
         LIMIT 20
     """, (f"%{query}%", f"%{query}%"))
-    results = cur.fetchall()
+    results = []
+    for row in cur.fetchall():
+        results.append((row['id'], row['title'], row['file_id'], row['file_link'],
+                       row['download_count'], row['author_name'], row['category_name']))
     cur.close()
     conn.close()
     return results
@@ -380,7 +384,7 @@ def get_top_books(limit: int = 10):
         ORDER BY b.download_count DESC
         LIMIT %s
     """, (limit,))
-    top = cur.fetchall()
+    top = [(row['id'], row['title'], row['download_count'], row['author_name']) for row in cur.fetchall()]
     cur.close()
     conn.close()
     return top
@@ -398,7 +402,7 @@ def get_top_categories(limit: int = 5):
         ORDER BY total_downloads DESC
         LIMIT %s
     """, (limit,))
-    top = cur.fetchall()
+    top = [(row['id'], row['name'], row['total_downloads']) for row in cur.fetchall()]
     cur.close()
     conn.close()
     return top
@@ -408,10 +412,10 @@ def get_author_id_by_book(book_id: int) -> int:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT author_id FROM books WHERE id = %s", (book_id,))
-    result = cur.fetchone()
+    row = cur.fetchone()
     cur.close()
     conn.close()
-    return result[0] if result else None
+    return row['author_id'] if row else None
 
 # ---------- دوال الإعدادات ----------
 def set_setting(key: str, value: str):
@@ -431,10 +435,10 @@ def get_setting(key: str) -> str:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT value FROM settings WHERE key = %s", (key,))
-    result = cur.fetchone()
+    row = cur.fetchone()
     cur.close()
     conn.close()
-    return result[0] if result else None
+    return row['value'] if row else None
 
 def delete_setting(key: str):
     """حذف إعداد"""
@@ -450,7 +454,7 @@ def get_all_settings():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT key, value FROM settings")
-    settings = cur.fetchall()
+    settings = [(row['key'], row['value']) for row in cur.fetchall()]
     cur.close()
     conn.close()
     return settings
@@ -461,7 +465,7 @@ def get_required_channels():
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT value FROM settings WHERE key LIKE 'channel_%'")
-    channels = [row[0] for row in cur.fetchall()]
+    channels = [row['value'] for row in cur.fetchall()]
     cur.close()
     conn.close()
     return channels
@@ -470,9 +474,8 @@ def add_required_channel(channel: str):
     """إضافة قناة إجبارية"""
     conn = get_connection()
     cur = conn.cursor()
-    # توليد مفتاح فريد
-    cur.execute("SELECT COUNT(*) FROM settings WHERE key LIKE 'channel_%'")
-    count = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) as cnt FROM settings WHERE key LIKE 'channel_%'")
+    count = cur.fetchone()['cnt']
     key = f"channel_{count+1}"
     cur.execute("INSERT INTO settings (key, value) VALUES (%s, %s)", (key, channel))
     conn.commit()
