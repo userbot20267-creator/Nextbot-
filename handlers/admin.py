@@ -11,7 +11,8 @@ from telegram.ext import (
     ContextTypes,
 )
 from telegram.constants import ParseMode
-
+import os
+from services.scraper import download_file_from_url
 import database as db
 from config import ADMIN_ID
 from keyboards import (
