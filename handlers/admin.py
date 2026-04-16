@@ -1,5 +1,6 @@
 # handlers/admin.py
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from handlers.admin_search import admin_search_conv
 from services.scraper import search_external_books
 from telegram import Update
 from telegram.ext import (
