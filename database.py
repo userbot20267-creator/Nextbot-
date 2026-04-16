@@ -608,7 +608,15 @@ def get_admin_permissions(user_id: int) -> dict:
         'can_view_stats': row[4],
         'can_lock_bot': row[5]
     }
+# ---------- إعدادات مجموعة التغذية الراجعة ----------
+def set_feedback_chat_id(chat_id: str):
+    """حفظ معرف المجموعة لاستقبال رسائل feedback"""
+    set_setting("feedback_chat_id", chat_id)
 
+def get_feedback_chat_id() -> str:
+    """جلب معرف المجموعة المخزن"""
+    return get_setting("feedback_chat_id")
+    
 def get_all_admins():
     """جلب قائمة بجميع المساعدين الإداريين"""
     conn = get_connection()
