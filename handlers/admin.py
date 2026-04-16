@@ -58,32 +58,59 @@ from utils import broadcast_message
 ) = range(19)  # أصبح العدد 19
 # ---------- دوال مساعدة للتحقق من الصلاحية ----------
 def is_admin(update: Update) -> bool:
-    """التحقق من أن المستخدم هو المالك"""
-    return update.effective_user.id == ADMIN_ID
+    """التحقق من أن المستخدم هو المالك أو مساعد إداري"""
+    user_id = update.effective_user.id
+    return user_id == ADMIN_ID or db.is_admin(user_id)
 
 
-async def admin_only(update: Update) -> bool:
-    """تزيين الدالة للتحقق من الصلاحية مع تنبيه"""
-    if not is_admin(update):
+async def admin_only(update: Update, required_permission: str = None) -> bool:
+    """التحقق من الصلاحية العامة أو صلاحية محددة للمساعدين"""
+    user_id = update.effective_user.id
+
+    # المالك الأساسي له كل الصلاحيات
+    if user_id == ADMIN_ID:
+        return True
+
+    # التحقق من كونه مساعداً
+    if not db.is_admin(user_id):
         if update.callback_query:
             await update.callback_query.answer("⛔ غير مصرح لك.", show_alert=True)
         return False
-    return True
+
+    # إذا لم تكن هناك صلاحية محددة مطلوبة، نسمح بالدخول
+    if required_permission is None:
+        return True
+
+    # التحقق من الصلاحية المحددة
+    perms = db.get_admin_permissions(user_id)
+    permission_map = {
+        "manage_books": perms.get("can_manage_books", False),
+        "manage_categories": perms.get("can_manage_categories", False),
+        "manage_users": perms.get("can_manage_users", False),
+        "broadcast": perms.get("can_broadcast", False),
+        "view_stats": perms.get("can_view_stats", False),
+    }
+
+    if permission_map.get(required_permission, False):
+        return True
+
+    if update.callback_query:
+        await update.callback_query.answer("⛔ ليس لديك هذه الصلاحية.", show_alert=True)
+    return False
 
 
 # ---------- أمر /admin ----------
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """عرض لوحة التحكم الرئيسية للمالك"""
+    """عرض لوحة التحكم الرئيسية للمالك والمساعدين"""
     if not is_admin(update):
-        await update.message.reply_text("⛔ هذا الأمر للمالك فقط.")
+        await update.message.reply_text("⛔ هذا الأمر للمالك والمساعدين فقط.")
         return
 
     await update.message.reply_text(
-        "🎛 *لوحة تحكم المالك*\n\nاختر أحد الخيارات:",
+        "🎛 *لوحة تحكم الإدارة*\n\nاختر أحد الخيارات:",
         reply_markup=admin_panel_keyboard(),
         parse_mode=ParseMode.MARKDOWN
     )
-
 
 # ---------- العودة إلى اللوحة الرئيسية ----------
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
