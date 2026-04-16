@@ -19,6 +19,7 @@ from keyboards import (
     cancel_only_keyboard,
 )
 from services.scraper import search_external_books_enhanced, download_file_from_url
+from services.auto_publisher import publish_book_to_channel  # ⬅️ استيراد دالة النشر
 
 
 # ---------- دوال مساعدة ----------
@@ -175,6 +176,16 @@ async def admin_search_result_navigation(update: Update, context: ContextTypes.D
         if author_id:
             db.add_book(title, author_id, file_id=file_id, file_link=link, added_by=ADMIN_ID)
 
+            # ⬇️⬇️⬇️ النشر التلقائي في القناة ⬇️⬇️⬇️
+            await publish_book_to_channel(
+                bot=context.bot,
+                title=title,
+                author=author,
+                file_id=file_id,
+                file_link=link,
+                cover_url=cover_url
+            )
+
         await query.edit_message_text("✅ تمت إضافة الكتاب بنجاح.", reply_markup=admin_panel_keyboard())
         return ConversationHandler.END
 
@@ -207,4 +218,4 @@ admin_search_conv = ConversationHandler(
         CallbackQueryHandler(cancel_action, pattern="^admin_cancel_search$"),
         CommandHandler("cancel", cancel_action),
     ],
-)
+    )
