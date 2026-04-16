@@ -316,3 +316,59 @@ async def download_file_from_url(url: str) -> str | None:
     except Exception as e:
         print(f"خطأ في تحميل الملف: {e}")
         return None
+# ---------- البحث الخارجي المجمع (مع Internet Archive) ----------
+from services.archive_scraper import search_internet_archive
+
+async def search_external_books_enhanced(query: str, limit: int = 10) -> List[Tuple[str, str, str, Optional[str]]]:
+    """
+    البحث في جميع المصادر الخارجية (Open Library + Google Books + Internet Archive).
+    
+    Args:
+        query: نص البحث
+        limit: الحد الأقصى لعدد النتائج المجمعة
+    
+    Returns:
+        قائمة منسقة: (عنوان, مؤلف, رابط التحميل/الكتاب, رابط الغلاف)
+    """
+    # تشغيل جميع المهام بالتوازي
+    open_lib_task = search_open_library(query, limit=5)
+    google_task = search_google_books(query, limit=5)
+    archive_task = search_internet_archive(query, limit=5)
+    
+    open_results, google_results, archive_results = await asyncio.gather(
+        open_lib_task, 
+        google_task,
+        archive_task,
+        return_exceptions=True
+    )
+    
+    # معالجة الأخطاء
+    if isinstance(open_results, Exception):
+        print(f"خطأ في Open Library: {open_results}")
+        open_results = []
+    if isinstance(google_results, Exception):
+        print(f"خطأ في Google Books: {google_results}")
+        google_results = []
+    if isinstance(archive_results, Exception):
+        print(f"خطأ في Internet Archive: {archive_results}")
+        archive_results = []
+    
+    # دمج النتائج مع إزالة التكرار
+    combined = []
+    seen_titles = set()
+    
+    # إضافة نتائج Open Library و Google Books (بدون غلاف)
+    for title, author, link in open_results + google_results:
+        normalized_title = title.lower().strip()
+        if normalized_title not in seen_titles:
+            seen_titles.add(normalized_title)
+            combined.append((title, author, link, None))
+    
+    # إضافة نتائج Internet Archive (مع غلاف ورابط تحميل مباشر)
+    for title, author, download_url, cover_url in archive_results:
+        normalized_title = title.lower().strip()
+        if normalized_title not in seen_titles:
+            seen_titles.add(normalized_title)
+            combined.append((title, author, download_url, cover_url))
+    
+    return combined[:limit]
