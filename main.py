@@ -33,6 +33,9 @@ from handlers.user import (
     feedback_conversation_handler,
 )
 
+# ⬇️⬇️⬇️ تمت الإضافة: استيراد نظام المساعدين الإداريين ⬇️⬇️⬇️
+from handlers.admin_roles import admin_roles_handlers, admin_roles_conversation
+
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -124,6 +127,11 @@ def main() -> None:
 
     application.add_handler(feedback_conversation_handler)
     application.add_error_handler(error_handler)
+
+    # ⬇️⬇️⬇️ تمت الإضافة: تسجيل معالجات المساعدين الإداريين ⬇️⬇️⬇️
+    for handler in admin_roles_handlers:
+        application.add_handler(handler)
+    application.add_handler(admin_roles_conversation)
 
     logger.info("🚀 جاري تشغيل البوت...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
