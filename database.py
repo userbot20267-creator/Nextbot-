@@ -66,7 +66,9 @@ def init_db():
             value TEXT NOT NULL
         )
     """)
-    
+    def init_db():
+    # ... الجداول الموجودة ...
+    init_admins_table()
     conn.commit()
     cur.close()
     conn.close()
@@ -491,3 +493,109 @@ def remove_required_channel(channel: str):
     conn.commit()
     cur.close()
     conn.close()
+# ---------- دوال المساعدين الإداريين ----------
+def init_admins_table():
+    """إنشاء جدول المساعدين إذا لم يكن موجوداً"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admins (
+            user_id BIGINT PRIMARY KEY,
+            added_by BIGINT NOT NULL,
+            can_manage_books BOOLEAN DEFAULT FALSE,
+            can_manage_categories BOOLEAN DEFAULT FALSE,
+            can_manage_users BOOLEAN DEFAULT FALSE,
+            can_broadcast BOOLEAN DEFAULT FALSE,
+            can_view_stats BOOLEAN DEFAULT TRUE,
+            added_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def add_admin(user_id: int, added_by: int, **permissions) -> bool:
+    """إضافة مساعد إداري جديد مع صلاحيات محددة"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO admins (user_id, added_by, can_manage_books, can_manage_categories,
+                               can_manage_users, can_broadcast, can_view_stats)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET
+                can_manage_books = EXCLUDED.can_manage_books,
+                can_manage_categories = EXCLUDED.can_manage_categories,
+                can_manage_users = EXCLUDED.can_manage_users,
+                can_broadcast = EXCLUDED.can_broadcast,
+                can_view_stats = EXCLUDED.can_view_stats
+        """, (
+            user_id, added_by,
+            permissions.get('can_manage_books', False),
+            permissions.get('can_manage_categories', False),
+            permissions.get('can_manage_users', False),
+            permissions.get('can_broadcast', False),
+            permissions.get('can_view_stats', True)
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"خطأ في إضافة مساعد: {e}")
+        return False
+
+def remove_admin(user_id: int) -> bool:
+    """حذف مساعد إداري"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM admins WHERE user_id = %s", (user_id,))
+    deleted = cur.rowcount > 0
+    conn.commit()
+    cur.close()
+    conn.close()
+    return deleted
+
+def get_admin_permissions(user_id: int) -> dict:
+    """جلب صلاحيات مساعد معين"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT can_manage_books, can_manage_categories, can_manage_users,
+               can_broadcast, can_view_stats
+        FROM admins WHERE user_id = %s
+    """, (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row:
+        return {}
+    return {
+        'can_manage_books': row[0],
+        'can_manage_categories': row[1],
+        'can_manage_users': row[2],
+        'can_broadcast': row[3],
+        'can_view_stats': row[4]
+    }
+
+def get_all_admins():
+    """جلب قائمة بجميع المساعدين الإداريين"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, added_by, added_at FROM admins ORDER BY added_at DESC")
+    admins = cur.fetchall()
+    cur.close()
+    conn.close()
+    return admins
+
+def is_admin(user_id: int) -> bool:
+    """التحقق مما إذا كان المستخدم مساعداً إدارياً (أو المالك)"""
+    if user_id == ADMIN_ID:
+        return True
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM admins WHERE user_id = %s", (user_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result is not None
