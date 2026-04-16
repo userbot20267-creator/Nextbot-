@@ -119,7 +119,7 @@ def main() -> None:
     application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     # تسجيل الوسيط (Middleware) لفحص القفل (يجب أن يكون أولاً)
-    application.add_handler(lock_middleware, group=-1)
+    application.add_middleware(lock_middleware)
 
     # تسجيل المعالجات الأساسية
     application.add_handler(start_handler)
