@@ -219,3 +219,21 @@ def cancel_only_keyboard():
     """زر إلغاء فقط (لحالات إدخال النص)"""
     keyboard = [[InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")]]
     return InlineKeyboardMarkup(keyboard)
+# ---------- أزرار إدارة الكتب من داخل القسم ----------
+def admin_category_books_keyboard(cat_id: int):
+    """أزرار إدارة الكتب المرتبطة بقسم معين"""
+    keyboard = [
+        [InlineKeyboardButton("➕ إضافة كتاب للقسم", callback_data=f"adm_addbook_cat_{cat_id}")],
+        [InlineKeyboardButton("📋 عرض كتب القسم", callback_data=f"adm_listbooks_cat_{cat_id}")],
+        [InlineKeyboardButton("🔙 العودة للأقسام", callback_data="admin_categories")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def admin_select_author_keyboard(authors, cat_id: int):
+    """عرض قائمة المؤلفين لاختيار مؤلف عند إضافة كتاب"""
+    keyboard = []
+    for author_id, author_name in authors:
+        keyboard.append([InlineKeyboardButton(author_name, callback_data=f"adm_selauthor_{author_id}_{cat_id}")])
+    keyboard.append([InlineKeyboardButton("➕ إضافة مؤلف جديد", callback_data=f"adm_newauthor_{cat_id}")])
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f"adm_cat_{cat_id}")])
+    return InlineKeyboardMarkup(keyboard)
