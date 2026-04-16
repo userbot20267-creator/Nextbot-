@@ -219,6 +219,18 @@ def get_user_joined_date(user_id: int):
 def get_user_downloads_count(user_id: int) -> int:
     """جلب عدد مرات تحميل المستخدم للكتب (مؤقت)"""
     return 0
+    def get_all_users_with_details():
+    """جلب جميع المستخدمين مع تفاصيلهم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT user_id, username, first_name, last_name, joined_at, is_banned
+        FROM users ORDER BY joined_at DESC
+    """)
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+    return users
 
 # ---------- دوال الأقسام ----------
 def add_category(name: str) -> bool:
