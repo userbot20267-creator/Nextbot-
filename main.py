@@ -14,7 +14,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ContextTypes,
-    TypeHandler,          # <-- تمت الإضافة
+    TypeHandler,
 )
 
 from config import BOT_TOKEN, ADMIN_ID
@@ -29,13 +29,13 @@ from handlers.admin import (
     admin_handler,
     admin_callback_handlers,
     admin_conversation_handlers,
+    set_feedback_group_command,   # <-- تم استيراد الأمر هنا
 )
 from handlers.user import (
     user_command_handlers,
     feedback_conversation_handler,
 )
-from handlers.admin import set_feedback_group_command
-application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
+
 # ---------- استيراد الميزات الجديدة ----------
 from handlers.admin_roles import admin_roles_handlers, admin_roles_conversation
 from handlers.admin_lock import admin_lock_handlers
@@ -159,7 +159,9 @@ def main() -> None:
 
     for handler in admin_auto_handlers:
         application.add_handler(handler)
-        application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
+
+    # أمر تعيين مجموعة الملاحظات
+    application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
 
     application.add_error_handler(error_handler)
 
