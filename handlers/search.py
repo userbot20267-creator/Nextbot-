@@ -20,7 +20,9 @@ from keyboards import (
     subscription_required_keyboard
 )
 from utils import check_user_subscription, get_required_channels_from_db
-from utils.scraping import search_external_books
+
+# ⬇️⬇️⬇️ تم تغيير الاستيراد إلى المحسن الذي يدعم Internet Archive والغلاف ⬇️⬇️⬇️
+from services.scraper import search_external_books_enhanced as search_external_books
 
 # حالة المحادثة للبحث
 WAITING_SEARCH_QUERY = 1
@@ -33,13 +35,12 @@ def ensure_uncategorized_category() -> int:
     for cat_id, name in categories:
         if name == "غير مصنف":
             return cat_id
-    # إنشاء القسم
     db.add_category("غير مصنف")
     categories = db.get_all_categories()
     for cat_id, name in categories:
         if name == "غير مصنف":
             return cat_id
-    return 1  # fallback
+    return 1
 
 
 # ---------- بدء عملية البحث ----------
@@ -60,7 +61,7 @@ async def search_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         return ConversationHandler.END
 
     await query.edit_message_text(
-        "🔍 *أرسل اسم الكتاب + اسم المؤلف:*\n\n"
+        "🔍 *أرسل اسم الكتاب + اسم المؤلف (بالعربية أو الإنجليزية):*\n\n"
         "مثال: `الخيميائي باولو كويلو`\n\n"
         "أو أرسل /cancel للإلغاء.",
         reply_markup=cancel_only_keyboard(),
@@ -75,34 +76,31 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = update.effective_user.id
     query_text = update.message.text.strip()
 
-    # تسجيل النشاط
     db.update_activity(user_id)
 
     # 1. البحث في قاعدة البيانات المحلية
     local_results = db.search_books(query_text)
 
-    # 2. البحث الخارجي (Open Library + Google Books إن وجد)
+    # 2. البحث الخارجي (Internet Archive + Open Library + Google Books)
     external_results = []
     if not local_results:
         await update.message.reply_text(
             "🔎 *لم يتم العثور على نتائج محلية. جاري البحث في المصادر الخارجية...*",
             parse_mode=ParseMode.MARKDOWN
         )
+        # الدالة الجديدة ترجع (عنوان, مؤلف, رابط, رابط_الغلاف)
         external_results = await search_external_books(query_text)
 
         # الأرشفة التلقائية: حفظ النتائج الخارجية في قاعدة البيانات
-        for title, author, link in external_results:
-            # التأكد من وجود قسم "غير مصنف"
+        for item in external_results:
+            title, author, link, cover_url = item  # تفكيك النتيجة الجديدة
             cat_id = ensure_uncategorized_category()
 
-            # محاولة إضافة المؤلف أو استرجاع معرفه إذا كان موجوداً
             success, author_id = db.add_author(author, cat_id)
             if not success:
-                # المؤلف موجود مسبقاً، نجلب معرفه
                 authors = db.get_authors_by_category(cat_id)
                 author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
 
-            # إضافة الكتاب مع الرابط الخارجي
             if author_id:
                 db.add_book(
                     title=title,
@@ -126,10 +124,9 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # إضافة النتائج المحلية
     for book in local_results:
-        # book: (id, title, file_id, file_link, downloads, author_name, category_name)
         combined_results.append(book)
 
-    # إضافة النتائج الخارجية (قد تكون أقل تفصيلاً)
+    # إضافة النتائج الخارجية (الشكل الجديد مع الغلاف)
     for ext in external_results:
         combined_results.append(ext)
 
@@ -165,7 +162,6 @@ async def new_search_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     """زر 'بحث جديد' داخل قائمة النتائج - يعيد بدء المحادثة"""
     query = update.callback_query
     await query.answer()
-    # نعيد توجيه المستخدم إلى بداية المحادثة
     await search_prompt(update, context)
 
 
@@ -185,7 +181,6 @@ search_conversation_handler = ConversationHandler(
     ],
 )
 
-# معالجات منفصلة للأزرار داخل نتائج البحث
 search_callback_handlers = [
     CallbackQueryHandler(new_search_prompt, pattern="^search_prompt$"),
-  ]
+    ]
