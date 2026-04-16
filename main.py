@@ -14,6 +14,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ContextTypes,
+    TypeHandler,          # <-- تمت الإضافة
 )
 
 from config import BOT_TOKEN, ADMIN_ID
@@ -118,8 +119,9 @@ def main() -> None:
     """تشغيل البوت"""
     application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
-    # تسجيل الوسيط (Middleware) لفحص القفل (يجب أن يكون أولاً)
-    application.middleware.append(lock_middleware)
+    # تسجيل وسيط القفل كـ TypeHandler في المجموعة -1 (يعمل أولاً)
+    application.add_handler(TypeHandler(Update, lock_middleware), group=-1)
+
     # تسجيل المعالجات الأساسية
     application.add_handler(start_handler)
     for handler in user_command_handlers:
