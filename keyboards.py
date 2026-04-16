@@ -141,6 +141,7 @@ def admin_category_actions_keyboard(cat_id: int):
     """خيارات تعديل/حذف قسم محدد"""
     keyboard = [
         [InlineKeyboardButton("✏️ تعديل الاسم", callback_data=f"adm_editcat_{cat_id}")],
+        [InlineKeyboardButton("📚 إدارة الكتب", callback_data=f"adm_bookscat_{cat_id}")],   # <-- هذا السطر الجديد
         [InlineKeyboardButton("❌ حذف القسم", callback_data=f"adm_delcat_{cat_id}")],
         [InlineKeyboardButton("🔙 العودة للأقسام", callback_data="admin_categories")]
     ]
