@@ -1,4 +1,8 @@
 # handlers/admin.py
+import database as db
+from config import ADMIN_ID
+# ... استيرادات أخرى ...
+from handlers.admin_roles import admin_roles_handlers, admin_roles_conversation
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from handlers.admin_search import admin_search_conv
 from services.scraper import search_external_books
