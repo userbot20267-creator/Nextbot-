@@ -34,7 +34,8 @@ from handlers.user import (
     user_command_handlers,
     feedback_conversation_handler,
 )
-
+from handlers.admin import set_feedback_group_command
+application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
 # ---------- استيراد الميزات الجديدة ----------
 from handlers.admin_roles import admin_roles_handlers, admin_roles_conversation
 from handlers.admin_lock import admin_lock_handlers
@@ -158,6 +159,7 @@ def main() -> None:
 
     for handler in admin_auto_handlers:
         application.add_handler(handler)
+        application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
 
     application.add_error_handler(error_handler)
 
