@@ -4,6 +4,7 @@ import os
 import logging
 import threading
 from flask import Flask
+from middleware.lock_middleware import lock_middleware
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -113,6 +114,10 @@ async def post_init(application: Application) -> None:
 
 # ---------- الدالة الرئيسية ----------
 def main() -> None:
+    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+
+    # تسجيل الوسيط (Middleware) لفحص القفل
+    application.add_handler(lock_middleware, group=-1)  # group=-1 يعني تنفيذه أولاً
     """تشغيل البوت"""
     application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
