@@ -64,19 +64,24 @@ async def receive_admin_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     context.user_data["new_admin_id"] = user_id
 
-    # عرض أزرار اختيار الصلاحيات
+    # عرض أزرار اختيار الصلاحيات - تم إضافة زر القفل
     keyboard = [
         [InlineKeyboardButton("📚 إدارة الكتب", callback_data="perm_books")],
         [InlineKeyboardButton("📁 إدارة الأقسام", callback_data="perm_categories")],
         [InlineKeyboardButton("👥 إدارة المستخدمين", callback_data="perm_users")],
         [InlineKeyboardButton("📣 إذاعة", callback_data="perm_broadcast")],
         [InlineKeyboardButton("📊 عرض الإحصائيات", callback_data="perm_stats")],
+        [InlineKeyboardButton("🔒 قفل/فتح البوت", callback_data="perm_lock")],   # ⬅️ تمت الإضافة
         [InlineKeyboardButton("✅ تم الانتهاء", callback_data="perm_done")],
         [InlineKeyboardButton("❌ إلغاء", callback_data="perm_cancel")],
     ]
     context.user_data["selected_perms"] = {
-        "books": False, "categories": False, "users": False,
-        "broadcast": False, "stats": True
+        "books": False,
+        "categories": False,
+        "users": False,
+        "broadcast": False,
+        "stats": True,
+        "lock": False,   # ⬅️ تمت الإضافة
     }
 
     await update.message.reply_text(
@@ -100,7 +105,8 @@ async def toggle_permission(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         "perm_categories": "categories",
         "perm_users": "users",
         "perm_broadcast": "broadcast",
-        "perm_stats": "stats"
+        "perm_stats": "stats",
+        "perm_lock": "lock",   # ⬅️ تمت الإضافة
     }
     perm_key = perm_map.get(query.data)
     if perm_key:
@@ -112,7 +118,7 @@ async def toggle_permission(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         status = "✅ مفعل" if perms[perm_key] else "❌ معطل"
         await query.answer(f"تم تغيير حالة الصلاحية: {status}")
 
-        # إعادة عرض نفس القائمة
+        # إعادة عرض نفس القائمة مع التحديث (تمت إضافة زر القفل)
         keyboard = [
             [InlineKeyboardButton(
                 f"{'✅' if perms.get('books', False) else '❌'} إدارة الكتب",
@@ -134,6 +140,10 @@ async def toggle_permission(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 f"{'✅' if perms.get('stats', True) else '❌'} عرض الإحصائيات",
                 callback_data="perm_stats"
             )],
+            [InlineKeyboardButton(
+                f"{'✅' if perms.get('lock', False) else '❌'} قفل/فتح البوت",
+                callback_data="perm_lock"
+            )],
             [InlineKeyboardButton("✅ تم الانتهاء", callback_data="perm_done")],
             [InlineKeyboardButton("❌ إلغاء", callback_data="perm_cancel")],
         ]
@@ -149,7 +159,8 @@ async def toggle_permission(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             can_manage_categories=perms.get("categories", False),
             can_manage_users=perms.get("users", False),
             can_broadcast=perms.get("broadcast", False),
-            can_view_stats=perms.get("stats", True)
+            can_view_stats=perms.get("stats", True),
+            can_lock_bot=perms.get("lock", False)   # ⬅️ تمت الإضافة
         )
 
         if success:
@@ -229,4 +240,4 @@ admin_roles_conversation = ConversationHandler(
         WAITING_PERMISSIONS: [CallbackQueryHandler(toggle_permission, pattern="^perm_")],
     },
     fallbacks=[CommandHandler("cancel", cancel_operation)],
-      )
+    )
