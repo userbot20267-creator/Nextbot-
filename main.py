@@ -32,7 +32,21 @@ from handlers.user import (
     user_command_handlers,
     feedback_conversation_handler,
 )
+from flask import Flask
+from threading import Thread
 
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 # ⬇️⬇️⬇️ تمت الإضافة: استيراد نظام المساعدين الإداريين ⬇️⬇️⬇️
 from handlers.admin_roles import admin_roles_handlers, admin_roles_conversation
 
