@@ -1100,7 +1100,34 @@ admin_delete_book_conv = ConversationHandler(
         CommandHandler("cancel", cancel_action)
     ],
 )
+# ---------- أمر تعيين مجموعة الملاحظات ----------
+async def set_feedback_group_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """أمر /setfeedbackgroup لتعيين مجموعة استقبال رسائل المستخدمين"""
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("⛔ هذا الأمر للمالك فقط.")
+        return
 
+    if not context.args:
+        await update.message.reply_text(
+            "❌ *استخدم:* `/setfeedbackgroup @groupusername` أو `/setfeedbackgroup -100123456789`",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
+    chat_id = context.args[0]
+    try:
+        chat = await context.bot.get_chat(chat_id)
+        db.set_feedback_chat_id(chat_id)
+        await update.message.reply_text(
+            f"✅ *تم تعيين مجموعة استقبال رسائل المستخدمين:*\n{chat.title}",
+            parse_mode=ParseMode.MARKDOWN
+        )
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ *تعذر الوصول للمجموعة.* تأكد أن البوت مضاف كعضو.\nخطأ: {e}",
+            parse_mode=ParseMode.MARKDOWN
+        )
 # تجميع جميع المحادثات في قائمة واحدة لسهولة التسجيل
 admin_conversation_handlers = [
     admin_category_conv,
