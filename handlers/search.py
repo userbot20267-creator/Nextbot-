@@ -1,6 +1,7 @@
 # handlers/search.py
 
-from telegram import Update
+import os
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     CallbackQueryHandler,
     MessageHandler,
@@ -21,8 +22,9 @@ from keyboards import (
 )
 from utils import check_user_subscription, get_required_channels_from_db
 
-# ⬇️⬇️⬇️ تم تغيير الاستيراد إلى المحسن الذي يدعم Internet Archive والغلاف ⬇️⬇️⬇️
+# البحث المحسن الذي يدعم Internet Archive والغلاف
 from services.scraper import search_external_books_enhanced as search_external_books
+from services.scraper import download_file_from_url
 
 # حالة المحادثة للبحث
 WAITING_SEARCH_QUERY = 1
@@ -41,6 +43,16 @@ def ensure_uncategorized_category() -> int:
         if name == "غير مصنف":
             return cat_id
     return 1
+
+
+def get_search_example() -> str:
+    """ترجع أمثلة على صيغ البحث الصحيحة"""
+    return (
+        "🔍 *أمثلة على صيغ البحث:*\n"
+        "• `الخيميائي باولو كويلو`\n"
+        "• `Clean Code Robert Martin`\n\n"
+        "يمكنك كتابة اسم الكتاب والمؤلف معًا."
+    )
 
 
 # ---------- بدء عملية البحث ----------
@@ -88,52 +100,80 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
             "🔎 *لم يتم العثور على نتائج محلية. جاري البحث في المصادر الخارجية...*",
             parse_mode=ParseMode.MARKDOWN
         )
-        # الدالة الجديدة ترجع (عنوان, مؤلف, رابط, رابط_الغلاف)
         external_results = await search_external_books(query_text)
 
-        # الأرشفة التلقائية: حفظ النتائج الخارجية في قاعدة البيانات
-        for item in external_results:
-            title, author, link, cover_url = item  # تفكيك النتيجة الجديدة
-            cat_id = ensure_uncategorized_category()
-
-            success, author_id = db.add_author(author, cat_id)
-            if not success:
-                authors = db.get_authors_by_category(cat_id)
-                author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
-
-            if author_id:
-                db.add_book(
-                    title=title,
-                    author_id=author_id,
-                    file_link=link,
-                    added_by=user_id
-                )
+        # ⬇️⬇️⬇️ تم تعطيل الأرشفة التلقائية بالكامل ⬇️⬇️⬇️
+        # (سيتم التعامل مع الكتب الخارجية عبر نظام طلب الموافقة لاحقًا)
+        # for item in external_results:
+        #     title, author, link, cover_url = item
+        #     cat_id = ensure_uncategorized_category()
+        #     success, author_id = db.add_author(author, cat_id)
+        #     if not success:
+        #         authors = db.get_authors_by_category(cat_id)
+        #         author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
+        #     if author_id:
+        #         db.add_book(title, author_id, file_link=link, added_by=user_id)
+        # ⬆️⬆️⬆️ نهاية التعطيل ⬆️⬆️⬆️
 
     # 3. عرض النتائج
     if not local_results and not external_results:
         await update.message.reply_text(
-            "❌ *لم يتم العثور على أي نتائج.*\n"
-            "حاول بصيغة أخرى أو تأكد من الإملاء.",
+            f"❌ *لم يتم العثور على أي نتائج.*\n\n{get_search_example()}",
             reply_markup=main_menu(),
             parse_mode=ParseMode.MARKDOWN
         )
         return ConversationHandler.END
 
-    # تجهيز قائمة النتائج للعرض
-    combined_results = []
-
-    # إضافة النتائج المحلية
+    # عرض النتائج المحلية (كتب موجودة بالفعل في البوت)
     for book in local_results:
-        combined_results.append(book)
+        book_id, title, file_id, file_link, downloads, author_name, category_name = book
+        if file_id:
+            try:
+                await update.message.reply_document(
+                    document=file_id,
+                    caption=f"📖 *{title}*\n✍️ {author_name}",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            except Exception as e:
+                await update.message.reply_text(f"❌ خطأ في إرسال الملف: {e}")
 
-    # إضافة النتائج الخارجية (الشكل الجديد مع الغلاف)
+    # عرض النتائج الخارجية: محاولة تحميل وإرسال الملف، وإلا رابط
     for ext in external_results:
-        combined_results.append(ext)
+        title, author, link, cover_url = ext
+        status_msg = await update.message.reply_text(
+            f"⏳ *جاري تجهيز:* {title}",
+            parse_mode=ParseMode.MARKDOWN
+        )
 
-    keyboard = search_results_keyboard(combined_results)
+        tmp_path = await download_file_from_url(link)
+        file_sent = False
+        if tmp_path:
+            try:
+                with open(tmp_path, 'rb') as f:
+                    await update.message.reply_document(
+                        document=f,
+                        caption=f"📖 *{title}*\n✍️ {author}",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                os.unlink(tmp_path)
+                file_sent = True
+                await status_msg.delete()
+            except Exception as e:
+                await status_msg.edit_text(f"❌ فشل إرسال الملف. جارٍ إرسال الرابط...")
+
+        if not file_sent:
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔗 رابط الكتاب", url=link)]
+            ])
+            await status_msg.edit_text(
+                f"📖 *{title}*\n✍️ {author}\n\n⚠️ تعذر التحميل التلقائي. استخدم الزر أدناه.",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+
     await update.message.reply_text(
-        f"✅ *تم العثور على {len(combined_results)} نتيجة:*",
-        reply_markup=keyboard,
+        "✅ *تم عرض النتائج.*",
+        reply_markup=main_menu(),
         parse_mode=ParseMode.MARKDOWN
     )
     return ConversationHandler.END
@@ -183,4 +223,4 @@ search_conversation_handler = ConversationHandler(
 
 search_callback_handlers = [
     CallbackQueryHandler(new_search_prompt, pattern="^search_prompt$"),
-    ]
+]
