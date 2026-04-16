@@ -219,7 +219,7 @@ def get_user_joined_date(user_id: int):
 def get_user_downloads_count(user_id: int) -> int:
     """جلب عدد مرات تحميل المستخدم للكتب (مؤقت)"""
     return 0
-    def get_all_users_with_details():
+def get_all_users_with_details():
     """جلب جميع المستخدمين مع تفاصيلهم"""
     conn = get_connection()
     cur = conn.cursor()
