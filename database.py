@@ -7,7 +7,23 @@ from config import DATABASE_URL
 def get_connection():
     """إنشاء وإرجاع اتصال بقاعدة البيانات"""
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+# ---------- إعدادات القناة ----------
+def set_channel_id(channel_id: str):
+    """حفظ معرف القناة للنشر التلقائي"""
+    set_setting("auto_channel", channel_id)
 
+def get_channel_id() -> str:
+    """جلب معرف القناة المخزن"""
+    return get_setting("auto_channel")
+
+def set_auto_fetch_enabled(enabled: bool):
+    """تفعيل/تعطيل الجلب التلقائي"""
+    set_setting("auto_fetch_enabled", str(enabled).lower())
+
+def is_auto_fetch_enabled() -> bool:
+    """التحقق من تفعيل الجلب التلقائي"""
+    val = get_setting("auto_fetch_enabled")
+    return val == "true" if val else False
 # ---------- تهيئة الجداول ----------
 def init_db():
     """إنشاء جميع الجداول إذا لم تكن موجودة"""
@@ -72,6 +88,9 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+    if not get_setting("auto_fetch_enabled"):
+        set_auto_fetch_enabled(False)
+        
 
 # ---------- دوال المستخدمين ----------
 def add_user(user_id: int, username: str, first_name: str, last_name: str):
