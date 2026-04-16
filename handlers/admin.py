@@ -30,28 +30,26 @@ from utils import broadcast_message
 
 # حالات المحادثة (Conversation States)
 (
-    # إدارة الأقسام
     WAITING_CATEGORY_NAME,
     WAITING_CATEGORY_EDIT_NAME,
     WAITING_CATEGORY_DELETE_CONFIRM,
-    # إدارة الكتب
     WAITING_BOOK_TITLE,
     WAITING_BOOK_AUTHOR,
     WAITING_BOOK_FILE,
     WAITING_BOOK_EDIT_SELECT,
     WAITING_BOOK_EDIT_FIELD,
     WAITING_BOOK_DELETE_CONFIRM,
-    # إدارة المستخدمين
     WAITING_BAN_USER_ID,
     WAITING_UNBAN_USER_ID,
-    # الإذاعة
     WAITING_BROADCAST_MESSAGE,
-    # إدارة القنوات
     WAITING_CHANNEL_USERNAME,
     WAITING_CHANNEL_DELETE_CONFIRM,
-    # بحث وإضافة كتاب خارجي
-    WAITING_SEARCH_ADD_BOOK,          # <-- تأكد من وجود هذا السطر
-) = range(15)                         # <-- تأكد أن الرقم 15 (عدد الحالات)
+    WAITING_SEARCH_ADD_BOOK,
+    WAITING_BOOK_TITLE_FOR_CAT,
+    WAITING_BOOK_AUTHOR_FOR_CAT,
+    WAITING_BOOK_FILE_FOR_CAT,
+    WAITING_NEW_AUTHOR_NAME,
+) = range(19)  # أصبح العدد 19
 # ---------- دوال مساعدة للتحقق من الصلاحية ----------
 def is_admin(update: Update) -> bool:
     """التحقق من أن المستخدم هو المالك"""
@@ -531,7 +529,185 @@ def ensure_uncategorized_category() -> int:
         if name == "غير مصنف":
             return cat_id
     return 1
+# ---------- إدارة كتب قسم محدد ----------
+async def admin_category_books_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """عرض قائمة إدارة الكتب لقسم معين"""
+    query = update.callback_query
+    await query.answer()
+    if not await admin_only(update): return
+    
+    cat_id = int(query.data.split("_")[2])
+    context.user_data["admin_cat_id"] = cat_id
+    category = db.get_category_by_id(cat_id)
+    
+    await query.edit_message_text(
+        f"📚 *إدارة كتب قسم: {category[1]}*",
+        reply_markup=admin_category_books_keyboard(cat_id),
+        parse_mode=ParseMode.MARKDOWN
+    )
 
+async def admin_list_books_in_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """عرض قائمة الكتب في قسم معين"""
+    query = update.callback_query
+    await query.answer()
+    if not await admin_only(update): return
+    
+    cat_id = int(query.data.split("_")[2])
+    authors = db.get_authors_by_category(cat_id)
+    
+    if not authors:
+        await query.edit_message_text(
+            "❌ لا يوجد مؤلفون في هذا القسم بعد.",
+            reply_markup=admin_category_books_keyboard(cat_id)
+        )
+        return
+    
+    # جمع الكتب من جميع المؤلفين في القسم
+    all_books = []
+    for author_id, author_name in authors:
+        books = db.get_books_by_author(author_id)
+        for book in books:
+            all_books.append((book[0], book[1], author_name))
+    
+    if not all_books:
+        await query.edit_message_text(
+            "📭 لا توجد كتب في هذا القسم حالياً.",
+            reply_markup=admin_category_books_keyboard(cat_id)
+        )
+        return
+    
+    text = "📋 *كتب القسم:*\n\n"
+    for book_id, title, author in all_books[:20]:
+        text += f"• {title} - {author}\n"
+    
+    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data=f"adm_bookscat_{cat_id}")]]
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+# ---------- إضافة كتاب لقسم محدد (مع اختيار المؤلف) ----------
+async def admin_add_book_to_category_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if not await admin_only(update): return ConversationHandler.END
+    
+    cat_id = int(query.data.split("_")[3])
+    context.user_data["target_cat_id"] = cat_id
+    
+    authors = db.get_authors_by_category(cat_id)
+    if not authors:
+        # إذا لم يوجد مؤلفون، اطلب إضافة مؤلف جديد
+        await query.edit_message_text(
+            "✍️ *لا يوجد مؤلفون في هذا القسم. أرسل اسم المؤلف الجديد:*",
+            reply_markup=cancel_only_keyboard(),
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return WAITING_NEW_AUTHOR_NAME
+    
+    await query.edit_message_text(
+        "👤 *اختر المؤلف:*",
+        reply_markup=admin_select_author_keyboard(authors, cat_id),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_BOOK_TITLE_FOR_CAT
+
+async def admin_select_author_for_book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data.split("_")
+    author_id = int(data[2])
+    cat_id = int(data[3])
+    
+    context.user_data["selected_author_id"] = author_id
+    context.user_data["target_cat_id"] = cat_id
+    
+    await query.edit_message_text(
+        "📖 *أرسل عنوان الكتاب:*",
+        reply_markup=cancel_only_keyboard(),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_BOOK_TITLE_FOR_CAT
+
+async def admin_new_author_for_book(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    
+    cat_id = int(query.data.split("_")[2])
+    context.user_data["target_cat_id"] = cat_id
+    
+    await query.edit_message_text(
+        "✍️ *أرسل اسم المؤلف الجديد:*",
+        reply_markup=cancel_only_keyboard(),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_NEW_AUTHOR_NAME
+
+async def admin_receive_new_author_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    author_name = update.message.text.strip()
+    cat_id = context.user_data.get("target_cat_id")
+    
+    success, author_id = db.add_author(author_name, cat_id)
+    if not success:
+        authors = db.get_authors_by_category(cat_id)
+        author_id = next((a[0] for a in authors if a[1].lower() == author_name.lower()), None)
+    
+    context.user_data["selected_author_id"] = author_id
+    
+    await update.message.reply_text(
+        "📖 *أرسل عنوان الكتاب:*",
+        reply_markup=cancel_only_keyboard(),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_BOOK_TITLE_FOR_CAT
+
+async def admin_receive_book_title_for_cat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    title = update.message.text.strip()
+    context.user_data["book_title"] = title
+    
+    await update.message.reply_text(
+        "📎 *أرسل ملف الكتاب (PDF) أو رابط خارجي:*\n\n"
+        "يمكنك إرسال ملف مباشرة، أو رابط (سيحاول البوت تحميله).",
+        reply_markup=cancel_only_keyboard(),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    return WAITING_BOOK_FILE_FOR_CAT
+
+async def admin_receive_book_file_for_cat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    title = context.user_data.get("book_title")
+    author_id = context.user_data.get("selected_author_id")
+    
+    file_id = None
+    file_link = None
+    
+    if update.message.document:
+        file_id = update.message.document.file_id
+    elif update.message.text:
+        url = update.message.text.strip()
+        file_link = url
+        # محاولة تحميل الملف
+        from services.scraper import download_file_from_url
+        tmp_path = await download_file_from_url(url)
+        if tmp_path:
+            try:
+                with open(tmp_path, 'rb') as f:
+                    msg = await update.message.reply_document(document=f)
+                    file_id = msg.document.file_id
+                os.unlink(tmp_path)
+                file_link = None  # نعتمد على file_id
+                await update.message.reply_text("✅ تم تحميل الملف بنجاح.")
+            except Exception as e:
+                await update.message.reply_text(f"⚠️ تعذر رفع الملف، تم حفظ الرابط فقط.\nخطأ: {e}")
+        else:
+            await update.message.reply_text("⚠️ لم يتمكن البوت من تحميل الملف، تم حفظ الرابط فقط.")
+    else:
+        await update.message.reply_text("❌ يرجى إرسال ملف أو رابط.")
+        return WAITING_BOOK_FILE_FOR_CAT
+    
+    db.add_book(title, author_id, file_id=file_id, file_link=file_link, added_by=ADMIN_ID)
+    await update.message.reply_text("✅ تمت إضافة الكتاب بنجاح.")
+    
+    # العودة للوحة التحكم
+    await admin_command(update, context)
+    return ConversationHandler.END
 
 # ---------- تجميع الـ Handlers ----------
 admin_handler = CommandHandler("admin", admin_command)
