@@ -283,3 +283,36 @@ async def get_book_cover_url(title: str, author: str = "") -> Optional[str]:
         except Exception:
             pass
     return None
+# ---------- تحميل ملف من رابط ----------
+import aiohttp
+import aiofiles
+import os
+import tempfile
+
+async def download_file_from_url(url: str) -> str | None:
+    """
+    تحميل ملف من رابط وحفظه مؤقتاً، ثم رفعه إلى تليجرام وإرجاع file_id.
+    إذا فشل التحميل أو كان الرابط ليس ملفاً مباشراً، ترجع None.
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=30) as resp:
+                if resp.status != 200:
+                    return None
+                
+                # قراءة المحتوى
+                content = await resp.read()
+                
+                # التحقق من الحجم (حد تليجرام 50 ميجا)
+                if len(content) > 50 * 1024 * 1024:
+                    return None
+                
+                # حفظ مؤقت
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                    tmp.write(content)
+                    tmp_path = tmp.name
+                
+                return tmp_path
+    except Exception as e:
+        print(f"خطأ في تحميل الملف: {e}")
+        return None
