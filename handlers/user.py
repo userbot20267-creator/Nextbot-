@@ -70,7 +70,7 @@ async def feedback_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def feedback_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """استلام الرسالة وإرسالها للمالك"""
+    """استلام الرسالة وإرسالها للمجموعة (إن وجدت) أو للمالك"""
     user = update.effective_user
     message_text = update.message.text or update.message.caption or ""
 
@@ -78,7 +78,7 @@ async def feedback_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text("❌ يرجى إرسال نص.")
         return WAITING_FEEDBACK
 
-    # إعداد رسالة للمالك
+    # إعداد رسالة للإدارة
     admin_message = (
         f"📬 *رسالة جديدة من مستخدم*\n\n"
         f"👤 *المرسل:* {user.full_name} (@{user.username or 'بدون معرف'})\n"
@@ -86,8 +86,12 @@ async def feedback_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         f"📝 *الرسالة:*\n{message_text}"
     )
 
+    # تحديد الوجهة: مجموعة feedback إذا وُجدت، وإلا المالك
+    feedback_chat_id = db.get_feedback_chat_id()
+    target_id = feedback_chat_id if feedback_chat_id else ADMIN_ID
+
     try:
-        await context.bot.send_message(chat_id=ADMIN_ID, text=admin_message, parse_mode=ParseMode.MARKDOWN)
+        await context.bot.send_message(chat_id=target_id, text=admin_message, parse_mode=ParseMode.MARKDOWN)
         await update.message.reply_text(
             "✅ *تم إرسال رسالتك بنجاح.*\nشكراً لتواصلك معنا!",
             parse_mode=ParseMode.MARKDOWN,
@@ -143,6 +147,4 @@ feedback_conversation_handler = ConversationHandler(
         CommandHandler("cancel", cancel_feedback),
         CallbackQueryHandler(cancel_feedback, pattern="^cancel_action$"),
     ],
-)
-
-# إذا أردت إضافة زر "حول البوت" من القائمة الرئيسية، تمت معالجته في start.py
+        )
