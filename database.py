@@ -2,11 +2,12 @@
 import psycopg
 from psycopg.rows import dict_row
 from datetime import datetime
-from config import DATABASE_URL
+from config import DATABASE_URL, ADMIN_ID
 
 def get_connection():
     """إنشاء وإرجاع اتصال بقاعدة البيانات"""
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
 # ---------- إعدادات القناة ----------
 def set_channel_id(channel_id: str):
     """حفظ معرف القناة للنشر التلقائي"""
@@ -24,6 +25,7 @@ def is_auto_fetch_enabled() -> bool:
     """التحقق من تفعيل الجلب التلقائي"""
     val = get_setting("auto_fetch_enabled")
     return val == "true" if val else False
+
 # ---------- تهيئة الجداول ----------
 def init_db():
     """إنشاء جميع الجداول إذا لم تكن موجودة"""
@@ -82,15 +84,29 @@ def init_db():
             value TEXT NOT NULL
         )
     """)
-    def init_db():
-    # ... الجداول الموجودة ...
-    init_admins_table()
+
+    # جدول المساعدين الإداريين
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admins (
+            user_id BIGINT PRIMARY KEY,
+            added_by BIGINT NOT NULL,
+            can_manage_books BOOLEAN DEFAULT FALSE,
+            can_manage_categories BOOLEAN DEFAULT FALSE,
+            can_manage_users BOOLEAN DEFAULT FALSE,
+            can_broadcast BOOLEAN DEFAULT FALSE,
+            can_view_stats BOOLEAN DEFAULT TRUE,
+            can_lock_bot BOOLEAN DEFAULT FALSE,
+            added_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
+
+    # إعدادات افتراضية
     if not get_setting("auto_fetch_enabled"):
         set_auto_fetch_enabled(False)
-        
 
 # ---------- دوال المستخدمين ----------
 def add_user(user_id: int, username: str, first_name: str, last_name: str):
@@ -512,27 +528,8 @@ def remove_required_channel(channel: str):
     conn.commit()
     cur.close()
     conn.close()
-# ---------- دوال المساعدين الإداريين ----------
-def init_admins_table():
-    """إنشاء جدول المساعدين إذا لم يكن موجوداً"""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS admins (
-            user_id BIGINT PRIMARY KEY,
-            added_by BIGINT NOT NULL,
-            can_manage_books BOOLEAN DEFAULT FALSE,
-            can_manage_categories BOOLEAN DEFAULT FALSE,
-            can_manage_users BOOLEAN DEFAULT FALSE,
-            can_broadcast BOOLEAN DEFAULT FALSE,
-            can_view_stats BOOLEAN DEFAULT TRUE,
-            added_at TIMESTAMP DEFAULT NOW()
-        )
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
 
+# ---------- دوال المساعدين الإداريين ----------
 def add_admin(user_id: int, added_by: int, **permissions) -> bool:
     """إضافة مساعد إداري جديد مع صلاحيات محددة"""
     try:
@@ -540,21 +537,23 @@ def add_admin(user_id: int, added_by: int, **permissions) -> bool:
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO admins (user_id, added_by, can_manage_books, can_manage_categories,
-                               can_manage_users, can_broadcast, can_view_stats)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                               can_manage_users, can_broadcast, can_view_stats, can_lock_bot)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 can_manage_books = EXCLUDED.can_manage_books,
                 can_manage_categories = EXCLUDED.can_manage_categories,
                 can_manage_users = EXCLUDED.can_manage_users,
                 can_broadcast = EXCLUDED.can_broadcast,
-                can_view_stats = EXCLUDED.can_view_stats
+                can_view_stats = EXCLUDED.can_view_stats,
+                can_lock_bot = EXCLUDED.can_lock_bot
         """, (
             user_id, added_by,
             permissions.get('can_manage_books', False),
             permissions.get('can_manage_categories', False),
             permissions.get('can_manage_users', False),
             permissions.get('can_broadcast', False),
-            permissions.get('can_view_stats', True)
+            permissions.get('can_view_stats', True),
+            permissions.get('can_lock_bot', False)
         ))
         conn.commit()
         cur.close()
@@ -581,7 +580,7 @@ def get_admin_permissions(user_id: int) -> dict:
     cur = conn.cursor()
     cur.execute("""
         SELECT can_manage_books, can_manage_categories, can_manage_users,
-               can_broadcast, can_view_stats
+               can_broadcast, can_view_stats, can_lock_bot
         FROM admins WHERE user_id = %s
     """, (user_id,))
     row = cur.fetchone()
@@ -594,7 +593,8 @@ def get_admin_permissions(user_id: int) -> dict:
         'can_manage_categories': row[1],
         'can_manage_users': row[2],
         'can_broadcast': row[3],
-        'can_view_stats': row[4]
+        'can_view_stats': row[4],
+        'can_lock_bot': row[5]
     }
 
 def get_all_admins():
