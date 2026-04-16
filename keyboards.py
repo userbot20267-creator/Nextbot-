@@ -164,6 +164,7 @@ def admin_users_keyboard():
         [InlineKeyboardButton("✅ فك الحظر", callback_data="admin_unban_user")],
         [InlineKeyboardButton("👁 عرض المحظورين", callback_data="admin_banned_list")],
         [InlineKeyboardButton("📊 إحصائيات المستخدمين", callback_data="admin_user_stats")],
+        [InlineKeyboardButton("👁 عرض جميع المستخدمين", callback_data="admin_list_users")],
         [InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")]
     ]
     return InlineKeyboardMarkup(keyboard)
