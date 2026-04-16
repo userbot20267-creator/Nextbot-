@@ -1,0 +1,32 @@
+from telegram import Update
+from telegram.ext import ContextTypes, CallbackQueryHandler
+from database import get_connection
+from config import ADMIN_ID
+
+async def list_all_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if query.from_user.id != ADMIN_ID:
+        await query.answer("❌ عذراً، هذا الأمر مخصص للمالك فقط.")
+        return
+
+    await query.answer("🔄 جاري تحميل قائمة المستخدمين... ⏳")
+    
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT user_id, username, full_name FROM users ORDER BY joined_at DESC LIMIT 50")
+            users = cur.fetchall()
+            
+    if not users:
+        await query.message.reply_text("⚠️ لا يوجد مستخدمون مسجلون حالياً.")
+        return
+
+    text = "👥 **قائمة آخر 50 مستخدماً:**\n\n"
+    for user in users:
+        username = f"@{user['username']}" if user['username'] else "بدون يوزر"
+        text += f"👤 {user['full_name']} ({username}) - `{user['user_id']}`\n"
+    
+    # Check for pattern match fix (ensure pattern in main.py is correct)
+    await query.message.reply_text(text, parse_mode="Markdown")
+
+# Register handler in main.py:
+# application.add_handler(CallbackQueryHandler(list_all_users, pattern="^admin_users_list$"))
