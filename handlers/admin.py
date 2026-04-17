@@ -950,7 +950,7 @@ admin_category_conv = ConversationHandler(
         WAITING_CATEGORY_DELETE_CONFIRM: [CallbackQueryHandler(admin_delete_category_execute, pattern="^(confirm_|cancel_)")],
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
-    per_message=True
+    
 )
 
 # محادثة إضافة كتاب يدوي
@@ -962,7 +962,7 @@ admin_book_conv = ConversationHandler(
         WAITING_BOOK_FILE: [MessageHandler(filters.Document.ALL, admin_add_book_file_receive)],
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
-    per_message=True
+
 )
 # محادثة حظر/فك حظر المستخدمين
 admin_user_ban_conv = ConversationHandler(
@@ -975,7 +975,7 @@ admin_user_ban_conv = ConversationHandler(
         WAITING_UNBAN_USER_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_user_receive)],
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
-    per_message=True
+    
 )
 
 # محادثة الإذاعة
@@ -985,7 +985,7 @@ admin_broadcast_conv = ConversationHandler(
         WAITING_BROADCAST_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_receive)],
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
-    per_message=True
+    
 )
 
 # محادثة القنوات الإجبارية
@@ -999,7 +999,7 @@ admin_channel_conv = ConversationHandler(
         WAITING_CHANNEL_DELETE_CONFIRM: [CallbackQueryHandler(admin_delete_channel_execute, pattern="^(confirm_|cancel_)")],
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
-    per_message=True
+    
 )
 # ---------- بحث خارجي وإضافة كتاب للمالك ----------
 
@@ -1080,7 +1080,7 @@ admin_search_add_conv = ConversationHandler(
         ],
     },
     fallbacks=[CallbackQueryHandler(cancel_action, pattern="^cancel_action$"), CommandHandler("cancel", cancel_action)],
-    per_message=True
+    
 )
 
 # محادثة تعديل كتاب
@@ -1094,7 +1094,7 @@ admin_edit_book_conv = ConversationHandler(
         CallbackQueryHandler(cancel_action, pattern="^cancel_action$"),
         CommandHandler("cancel", cancel_action)
     ],
-    per_message=True   # <-- أضف هذا السطر
+ 
 )
     
 
@@ -1108,7 +1108,7 @@ admin_delete_book_conv = ConversationHandler(
         CallbackQueryHandler(cancel_action, pattern="^cancel_action$"),
         CommandHandler("cancel", cancel_action)
     ],
-    per_message=True
+    
 )
 # ---------- أمر تعيين مجموعة الملاحظات ----------
 async def set_feedback_group_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1157,7 +1157,7 @@ admin_add_book_to_category_conv = ConversationHandler(
         CallbackQueryHandler(cancel_action, pattern="^cancel_action$"),
         CommandHandler("cancel", cancel_action)
     ],
-    per_message=True
+    
 )
 # تجميع جميع المحادثات في قائمة واحدة لسهولة التسجيل
 admin_conversation_handlers = [
