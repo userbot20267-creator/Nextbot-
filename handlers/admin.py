@@ -765,11 +765,7 @@ async def admin_add_book_to_category_receive_file(update: Update, context: Conte
 
     # العودة للوحة التحكم
     await admin_command(update, context)
-    return ConversationHandler.END"@{username}" if username else name or str(user_id)
-        text += f"• `{user_id}` - {display} ({status})\n"
-
-    keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_users")]]
-    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+    return ConversationHandler.END
 
 # ---------- تعديل كتاب (نقل إلى قسم آخر) ----------
 async def admin_edit_book_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -789,7 +785,7 @@ async def admin_edit_book_start(update: Update, context: ContextTypes.DEFAULT_TY
     return WAITING_BOOK_EDIT_SELECT
 
 
-async def admin_edit_book_receive_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def admin_ediدt_book_receive_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال معرف الكتاب وعرض قائمة الأقسام لنقله إليها"""
     try:
         book_id = int(update.message.text.strip())
