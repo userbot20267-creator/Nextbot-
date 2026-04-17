@@ -227,6 +227,7 @@ search_conversation_handler = ConversationHandler(
         CallbackQueryHandler(cancel_search, pattern="^cancel_action$"),
         CommandHandler("cancel", cancel_search),
     ],
+    per_message=True
 )
 
 search_callback_handlers = [
