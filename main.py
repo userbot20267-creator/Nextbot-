@@ -55,6 +55,7 @@ from handlers.admin_export import export_users_csv
 from handlers.points import show_points
 from handlers.admin_messages import custom_msg_handler
 from handlers.admin_users_list import list_all_users
+from handlers.admin_download import admin_download_handler
 from services.backup import run_backup
 
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
@@ -196,6 +197,8 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(show_history, pattern="^my_history$"))
     application.add_handler(CallbackQueryHandler(start_rating, pattern="^rate_book_"))
     application.add_handler(CallbackQueryHandler(submit_rating, pattern="^rate_"))
+    # معالج أولوية لتنزيل الكتب الخارجية للمالك (يعمل قبل معالجات admin.py)
+    application.add_handler(admin_download_handler, group=1)
     application.add_handler(CallbackQueryHandler(handle_summarize, pattern="^summarize_book_"))
     
     # 3. معالجات الإدمن الجديدة (قائمة المستخدمين، تصدير CSV، تخصيص الرسائل)
