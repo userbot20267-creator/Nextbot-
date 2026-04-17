@@ -785,7 +785,7 @@ async def admin_edit_book_start(update: Update, context: ContextTypes.DEFAULT_TY
     return WAITING_BOOK_EDIT_SELECT
 
 
-async def admin_ediدt_book_receive_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def admin_edit_book_receive_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """استقبال معرف الكتاب وعرض قائمة الأقسام لنقله إليها"""
     try:
         book_id = int(update.message.text.strip())
