@@ -30,6 +30,8 @@ from keyboards import (
     cancel_only_keyboard,
     confirm_cancel_keyboard,
     main_menu,
+admin_category_books_keyboard,   # ضروري
+    admin_select_author_keyboard,    # ضروري
 )
 from utils import broadcast_message
 
@@ -938,6 +940,7 @@ admin_callback_handlers = [
     CallbackQueryHandler(admin_add_book_to_category_start, pattern=r"^adm_addbook_cat_\d+$"),
     CallbackQueryHandler(admin_new_author_for_book, pattern=r"^adm_newauthor_\d+$"),
     CallbackQueryHandler(admin_select_author_for_book, pattern=r"^adm_selauthor_\d+_\d+$"),
+    CallbackQueryHandler(admin_list_books_in_category, pattern=r"^adm_listbooks_cat_\d+$"),
     CallbackQueryHandler(admin_delete_book_start, pattern="^admin_delete_book$"),
 ]
 # محادثة إدارة الأقسام
