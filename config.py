@@ -27,3 +27,9 @@ if not DATABASE_URL:
 
 # (اختياري) إعدادات إضافية
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+# مفتاح OpenRouter API لتلخيص الكتب بالذكاء الاصطناعي
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    # لا نرفع خطأ هنا حتى لا يتوقف البوت إذا لم تكن الخاصية مفعلة
+    # لكن بعض الميزات (مثل التلخيص) لن تعمل
+    print("⚠️ تحذير: OPENROUTER_API_KEY غير موجود. ميزة تلخيص الكتب معطلة.")
