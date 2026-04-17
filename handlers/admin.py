@@ -741,7 +741,7 @@ async def admin_list_all_users(update: Update, context: ContextTypes.DEFAULT_TYP
         name = first_name or ""
         if last_name:
             name += f" {last_name}"
-        display = fasync def admin_add_book_to_category_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def admin_add_book_to_category_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     book_title = context.user_data.get("book_title")
     author_id = context.user_data.get("selected_author_id")
     
