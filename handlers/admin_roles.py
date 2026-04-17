@@ -240,5 +240,5 @@ admin_roles_conversation = ConversationHandler(
         WAITING_PERMISSIONS: [CallbackQueryHandler(toggle_permission, pattern="^perm_")],
     },
     fallbacks=[CommandHandler("cancel", cancel_operation)],
-    per_message=True
+    
 )
