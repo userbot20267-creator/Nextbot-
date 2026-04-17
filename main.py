@@ -23,6 +23,7 @@ import database as db
 # ---------- استيراد جميع المعالجات الأساسية ----------
 from handlers.start import start_handler, callback_handlers as start_callback_handlers
 from handlers.browse import browse_handlers
+from handlers.ai_search import ai_search_conv
 from handlers.search import search_conversation_handler, search_callback_handlers
 from handlers.subscription import subscription_handlers
 from handlers.admin import (
@@ -158,7 +159,7 @@ def main() -> None:
         application.add_handler(handler)
     for handler in subscription_handlers:
         application.add_handler(handler)
-
+    application.add_handler(ai_search_conv)
     application.add_handler(search_conversation_handler)
     for handler in search_callback_handlers:
         application.add_handler(handler)
