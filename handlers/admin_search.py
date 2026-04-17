@@ -218,4 +218,5 @@ admin_search_conv = ConversationHandler(
         CallbackQueryHandler(cancel_action, pattern="^admin_cancel_search$"),
         CommandHandler("cancel", cancel_action),
     ],
+    per_message=True
     )
