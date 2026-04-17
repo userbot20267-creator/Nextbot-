@@ -279,7 +279,7 @@ def get_book_keyboard(book_id: int, is_favorite: bool = False):
             cur.execute("SELECT file_id, file_link FROM books WHERE id = %s", (book_id,))
             row = cur.fetchone()
             if row:
-                file_id = row[0]
-                file_link = row[1]
+                file_id = row['file_id']    # ✅ استخدم المفتاح بدلاً من الفهرس
+                file_link = row['file_link'] # ✅ استخدم المفتاح بدلاً من الفهرس
     
     return book_detail_keyboard(book_id, file_id, file_link, is_favorite)
