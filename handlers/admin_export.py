@@ -15,19 +15,29 @@ async def export_users_csv(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT user_id, username, full_name, points, joined_at FROM users")
+            # استخدام first_name و last_name بدلاً من full_name
+            cur.execute("""
+                SELECT user_id, username, first_name, last_name, points, joined_at 
+                FROM users
+            """)
             users = cur.fetchall()
             
     # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['User ID', 'Username', 'Full Name', 'Points', 'Joined At'])
+    writer.writerow(['User ID', 'Username', 'First Name', 'Last Name', 'Points', 'Joined At'])
     for user in users:
-        writer.writerow([user['user_id'], user['username'], user['full_name'], user['points'], user['joined_at']])
+        writer.writerow([
+            user['user_id'], 
+            user['username'], 
+            user['first_name'], 
+            user['last_name'], 
+            user['points'], 
+            user['joined_at']
+        ])
     
     output.seek(0)
     
-    # Send CSV file
     await query.message.reply_document(
         document=io.BytesIO(output.getvalue().encode('utf-8')),
         filename="users_report.csv",
