@@ -264,3 +264,22 @@ def admin_select_author_keyboard(authors, cat_id: int):
     keyboard.append([InlineKeyboardButton("➕ إضافة مؤلف جديد", callback_data=f"adm_newauthor_{cat_id}")])
     keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f"adm_cat_{cat_id}")])
     return InlineKeyboardMarkup(keyboard)
+def get_book_keyboard(book_id: int, is_favorite: bool = False):
+    """
+    واجهة متوافقة مع الاستدعاءات القديمة.
+    تقوم بجلب معلومات الكتاب من قاعدة البيانات لإنشاء لوحة المفاتيح.
+    """
+    from database import get_connection  # استيراد محلي لتجنب الدوران
+    
+    file_id = None
+    file_link = None
+    
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT file_id, file_link FROM books WHERE id = %s", (book_id,))
+            row = cur.fetchone()
+            if row:
+                file_id = row[0]
+                file_link = row[1]
+    
+    return book_detail_keyboard(book_id, file_id, file_link, is_favorite)
