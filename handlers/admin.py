@@ -604,7 +604,7 @@ async def admin_list_books_in_category(update: Update, context: ContextTypes.DEF
     await query.answer()
     if not await admin_only(update): return
     
-    cat_id = int(query.data.split("_")[2])
+    cat_id = int(query.data.split("_")[3])
     authors = db.get_authors_by_category(cat_id)
     
     if not authors:
@@ -712,15 +712,36 @@ async def admin_receive_new_author_name(update: Update, context: ContextTypes.DE
     return WAITING_BOOK_TITLE_FOR_CAT
 
 async def admin_add_book_to_category_receive_title(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """استقبال عنوان الكتاب والانتقال لطلب الملف"""
     context.user_data["book_title"] = update.message.text.strip()
     await update.message.reply_text(
-        "📎 *أرسل ملف الكتاب (PDF أو أي ملف):*",
+        "📎 *أرسل ملف الكتاب (PDF) أو رابط تحميل:*",
         reply_markup=cancel_only_keyboard(),
         parse_mode=ParseMode.MARKDOWN
     )
     return WAITING_BOOK_FILE_FOR_CAT
 
-async def admin_add_book_to_category_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+
+async def admin_list_all_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """عرض قائمة بجميع المستخدمين مع يوزراتهم"""
+    query = update.callback_query
+    await query.answer()
+    if not await admin_only(update, required_permission="manage_users"):
+        return
+
+    users = db.get_all_users_with_details()
+    if not users:
+        await query.edit_message_text("📭 لا يوجد مستخدمون بعد.")
+        return
+
+    text = "👥 *قائمة المستخدمين:*\n\n"
+    for user_id, username, first_name, last_name, joined_at, is_banned in users[:30]:
+        status = "🚫 محظور" if is_banned else "✅ نشط"
+        name = first_name or ""
+        if last_name:
+            name += f" {last_name}"
+        display = fasync def admin_add_book_to_category_receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     book_title = context.user_data.get("book_title")
     author_id = context.user_data.get("selected_author_id")
     
@@ -741,33 +762,10 @@ async def admin_add_book_to_category_receive_file(update: Update, context: Conte
     else:
         await update.message.reply_text("❌ يرجى إرسال ملف أو رابط.")
         return WAITING_BOOK_FILE_FOR_CAT
-    
-    db.add_book(book_title, author_id, file_id=file_id, file_link=file_link, added_by=ADMIN_ID)
-    await update.message.reply_text("✅ تمت إضافة الكتاب بنجاح.")
-    
+
     # العودة للوحة التحكم
     await admin_command(update, context)
-    return ConversationHandler.END
-
-async def admin_list_all_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """عرض قائمة بجميع المستخدمين مع يوزراتهم"""
-    query = update.callback_query
-    await query.answer()
-    if not await admin_only(update, required_permission="manage_users"):
-        return
-
-    users = db.get_all_users_with_details()
-    if not users:
-        await query.edit_message_text("📭 لا يوجد مستخدمون بعد.")
-        return
-
-    text = "👥 *قائمة المستخدمين:*\n\n"
-    for user_id, username, first_name, last_name, joined_at, is_banned in users[:30]:
-        status = "🚫 محظور" if is_banned else "✅ نشط"
-        name = first_name or ""
-        if last_name:
-            name += f" {last_name}"
-        display = f"@{username}" if username else name or str(user_id)
+    return ConversationHandler.END"@{username}" if username else name or str(user_id)
         text += f"• `{user_id}` - {display} ({status})\n"
 
     keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data="admin_users")]]
