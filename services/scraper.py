@@ -283,36 +283,90 @@ async def get_book_cover_url(title: str, author: str = "") -> Optional[str]:
         except Exception:
             pass
     return None
-# ---------- تحميل ملف من رابط ----------
+# ---------- تحميل ملف من رابط ورفعه إلى تليجرام ----------
 import aiohttp
 import aiofiles
 import os
 import tempfile
+import re
+from telegram import Bot
+from typing import Optional
 
-async def download_file_from_url(url: str) -> str | None:
+async def download_file_to_telegram(bot: Bot, url: str, chat_id: int) -> Optional[str]:
     """
-    تحميل ملف من رابط وحفظه مؤقتاً، ثم رفعه إلى تليجرام وإرجاع file_id.
-    إذا فشل التحميل أو كان الرابط ليس ملفاً مباشراً، ترجع None.
+    تنزيل ملف من رابط خارجي ورفعه إلى تليجرام وإرجاع file_id.
+    تدعم الروابط المباشرة فقط (PDF, EPUB, ...).
+    
+    Args:
+        bot: نسخة من بوت تليجرام
+        url: رابط الملف المراد تنزيله
+        chat_id: معرف الدردشة لرفع الملف إليه
+    
+    Returns:
+        file_id للملف المرفوع، أو None إذا فشلت العملية.
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                if resp.status != 200:
+                    print(f"⚠️ فشل تنزيل الملف: HTTP {resp.status}")
+                    return None
+
+                # تحديد اسم الملف
+                filename = None
+                content_disp = resp.headers.get('Content-Disposition')
+                if content_disp:
+                    fname_match = re.findall(r'filename[^;=\n]*=(([\'"]).*?\2|[^;\n]*)', content_disp)
+                    if fname_match:
+                        filename = fname_match[0][0].strip('"\'')
+                if not filename:
+                    filename = url.split('/')[-1] or 'book.pdf'
+                if not filename.endswith(('.pdf', '.epub', '.mobi', '.txt')):
+                    filename += '.pdf'  # افتراضي
+
+                # التحقق من حجم الملف (حد تليجرام 50 ميجا)
+                content_length = resp.headers.get('Content-Length')
+                if content_length and int(content_length) > 50 * 1024 * 1024:
+                    print(f"⚠️ الملف أكبر من 50 ميجا: {content_length} bytes")
+                    return None
+
+                # حفظ الملف مؤقتاً
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                    tmp.write(await resp.read())
+                    tmp_path = tmp.name
+
+        # رفع الملف إلى تليجرام
+        with open(tmp_path, 'rb') as f:
+            message = await bot.send_document(chat_id=chat_id, document=f, filename=filename)
+            file_id = message.document.file_id
+
+        # حذف الملف المؤقت
+        os.unlink(tmp_path)
+        return file_id
+
+    except asyncio.TimeoutError:
+        print(f"⚠️ مهلة التنزيل انتهت للرابط: {url}")
+        return None
+    except Exception as e:
+        print(f"❌ خطأ في download_file_to_telegram: {e}")
+        return None
+
+
+async def download_file_from_url(url: str) -> Optional[str]:
+    """
+    (للاستخدام القديم) تحميل ملف وحفظه مؤقتاً وإرجاع مساره.
     """
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=30) as resp:
                 if resp.status != 200:
                     return None
-                
-                # قراءة المحتوى
                 content = await resp.read()
-                
-                # التحقق من الحجم (حد تليجرام 50 ميجا)
                 if len(content) > 50 * 1024 * 1024:
                     return None
-                
-                # حفظ مؤقت
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     tmp.write(content)
-                    tmp_path = tmp.name
-                
-                return tmp_path
+                    return tmp.name
     except Exception as e:
         print(f"خطأ في تحميل الملف: {e}")
         return None
