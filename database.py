@@ -45,6 +45,9 @@ def init_db():
         )
     """)
     
+    # إضافة عمود points إلى users إذا لم يكن موجوداً
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+    
     # جدول الأقسام
     cur.execute("""
         CREATE TABLE IF NOT EXISTS categories (
@@ -77,7 +80,7 @@ def init_db():
         )
     """)
     
-    # جدول الإعدادات (للقنوات الإجبارية وغيرها)
+    # جدول الإعدادات
     cur.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -100,6 +103,30 @@ def init_db():
         )
     """)
 
+    # جدول المفضلة
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS favorites (
+            user_id BIGINT NOT NULL,
+            book_id INTEGER NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+        )
+    """)
+
+    # جدول سجل التحميلات
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS download_history (
+            user_id BIGINT NOT NULL,
+            book_id INTEGER NOT NULL,
+            downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id, downloaded_at),
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+        )
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
@@ -107,6 +134,7 @@ def init_db():
     # إعدادات افتراضية
     if not get_setting("auto_fetch_enabled"):
         set_auto_fetch_enabled(False)
+    
 
 # ---------- دوال المستخدمين ----------
 def add_user(user_id: int, username: str, first_name: str, last_name: str):
@@ -638,3 +666,127 @@ def is_admin(user_id: int) -> bool:
     cur.close()
     conn.close()
     return result is not None
+# ========== إضافات جديدة: المفضلة، سجل التحميلات، النقاط ==========
+
+# ---------- دوال المفضلة ----------
+def add_to_favorites(user_id: int, book_id: int):
+    """إضافة كتاب للمفضلة"""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO favorites (user_id, book_id) VALUES (%s, %s)", (user_id, book_id))
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
+def remove_from_favorites(user_id: int, book_id: int):
+    """إزالة كتاب من المفضلة"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM favorites WHERE user_id = %s AND book_id = %s", (user_id, book_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_user_favorites(user_id: int):
+    """جلب قائمة كتب المفضلة لمستخدم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT b.id, b.title, a.name as author_name
+        FROM favorites f
+        JOIN books b ON f.book_id = b.id
+        JOIN authors a ON b.author_id = a.id
+        WHERE f.user_id = %s
+        ORDER BY f.added_at DESC
+    """, (user_id,))
+    favorites = cur.fetchall()
+    cur.close()
+    conn.close()
+    return favorites
+
+def is_favorite(user_id: int, book_id: int) -> bool:
+    """التحقق مما إذا كان الكتاب في مفضلة المستخدم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM favorites WHERE user_id = %s AND book_id = %s", (user_id, book_id))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result is not None
+
+# ---------- دوال سجل التحميلات ----------
+def add_download_history(user_id: int, book_id: int):
+    """تسجيل عملية تحميل"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO download_history (user_id, book_id) VALUES (%s, %s)", (user_id, book_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_user_download_history(user_id: int):
+    """جلب سجل تحميلات المستخدم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT b.id, b.title, a.name as author_name, h.downloaded_at
+        FROM download_history h
+        JOIN books b ON h.book_id = b.id
+        JOIN authors a ON b.author_id = a.id
+        WHERE h.user_id = %s
+        ORDER BY h.downloaded_at DESC
+    """, (user_id,))
+    history = cur.fetchall()
+    cur.close()
+    conn.close()
+    return history
+
+# ---------- دوال النقاط ----------
+def add_user_points(user_id: int, points: int):
+    """إضافة نقاط للمستخدم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET points = points + %s WHERE user_id = %s", (points, user_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_user_points(user_id: int) -> int:
+    """جلب نقاط المستخدم"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT points FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row['points'] if row else 0
+
+def get_top_users_by_points(limit: int = 10):
+    """أفضل المستخدمين من حيث النقاط"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT user_id, username, first_name, last_name, points
+        FROM users
+        ORDER BY points DESC
+        LIMIT %s
+    """, (limit,))
+    top = cur.fetchall()
+    cur.close()
+    conn.close()
+    return top
+
+# تعديل دالة get_user_downloads_count لتصبح فعالة
+def get_user_downloads_count(user_id: int) -> int:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) as cnt FROM download_history WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row['cnt'] if row else 0
