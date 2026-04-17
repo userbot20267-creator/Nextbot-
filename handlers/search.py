@@ -2,6 +2,7 @@
 
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from services.scraper import download_file_to_telegram  # الدالة الجديدة
 from telegram.ext import (
     CallbackQueryHandler,
     MessageHandler,
@@ -24,6 +25,7 @@ from utils import check_user_subscription, get_required_channels_from_db
 
 # البحث المحسن الذي يدعم Internet Archive والغلاف
 from services.scraper import search_external_books_enhanced as search_external_books
+# نستورد download_file_from_url فقط للاحتفاظ بها (للاستخدامات الأخرى إن وجدت)
 from services.scraper import download_file_from_url
 
 # حالة المحادثة للبحث
@@ -137,38 +139,44 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
             except Exception as e:
                 await update.message.reply_text(f"❌ خطأ في إرسال الملف: {e}")
 
-    # عرض النتائج الخارجية: محاولة تحميل وإرسال الملف، وإلا رابط
+    # عرض النتائج الخارجية: تنزيل ورفع الملف مباشرة (بدون روابط)
     for ext in external_results:
         title, author, link, cover_url = ext
         status_msg = await update.message.reply_text(
-            f"⏳ *جاري تجهيز:* {title}",
+            f"⏳ *جاري تنزيل وتجهيز:* {title}",
             parse_mode=ParseMode.MARKDOWN
         )
 
-        tmp_path = await download_file_from_url(link)
-        file_sent = False
-        if tmp_path:
-            try:
-                with open(tmp_path, 'rb') as f:
-                    await update.message.reply_document(
-                        document=f,
-                        caption=f"📖 *{title}*\n✍️ {author}",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                os.unlink(tmp_path)
-                file_sent = True
-                await status_msg.delete()
-            except Exception as e:
-                await status_msg.edit_text(f"❌ فشل إرسال الملف. جارٍ إرسال الرابط...")
+        # استخدام الدالة الجديدة للتنزيل والرفع
+        file_id = await download_file_to_telegram(context.bot, link, user_id)
 
-        if not file_sent:
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔗 رابط الكتاب", url=link)]
-            ])
+        if file_id:
+            # تم التنزيل والرفع بنجاح، أرسل الملف للمستخدم
+            try:
+                await update.message.reply_document(
+                    document=file_id,
+                    caption=f"📖 *{title}*\n✍️ {author}",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                await status_msg.delete()
+
+                # اختياري: حفظ الكتاب في قاعدة البيانات للمكتبة المحلية
+                cat_id = ensure_uncategorized_category()
+                success, author_id = db.add_author(author, cat_id)
+                if not success:
+                    authors = db.get_authors_by_category(cat_id)
+                    author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
+                if author_id:
+                    db.add_book(title, author_id, file_id=file_id, added_by=user_id)
+
+            except Exception as e:
+                await status_msg.edit_text(f"❌ فشل إرسال الملف: {e}")
+        else:
+            # فشل التنزيل، لا نرسل رابطاً - نعرض رسالة فقط
             await status_msg.edit_text(
-                f"📖 *{title}*\n✍️ {author}\n\n⚠️ تعذر التحميل التلقائي. استخدم الزر أدناه.",
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=keyboard
+                f"❌ *تعذر تنزيل الكتاب:* {title}\n"
+                f"قد يكون الرابط غير صالح أو الملف كبيراً جداً.",
+                parse_mode=ParseMode.MARKDOWN
             )
 
     await update.message.reply_text(
