@@ -143,4 +143,5 @@ ai_search_conv = ConversationHandler(
         ],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
+    per_message=True
   )
