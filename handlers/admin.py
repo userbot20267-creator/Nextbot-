@@ -934,6 +934,10 @@ admin_callback_handlers = [
     CallbackQueryHandler(admin_top_categories, pattern="^admin_top_categories$"),
     CallbackQueryHandler(admin_channels_menu, pattern="^admin_channels$"),
     CallbackQueryHandler(admin_edit_book_start, pattern="^admin_edit_book$"),
+    CallbackQueryHandler(admin_category_books_menu, pattern=r"^adm_bookscat_\d+$"),
+    CallbackQueryHandler(admin_add_book_to_category_start, pattern=r"^adm_addbook_cat_\d+$"),
+    CallbackQueryHandler(admin_new_author_for_book, pattern=r"^adm_newauthor_\d+$"),
+    CallbackQueryHandler(admin_select_author_for_book, pattern=r"^adm_selauthor_\d+_\d+$"),
     CallbackQueryHandler(admin_delete_book_start, pattern="^admin_delete_book$"),
 ]
 # محادثة إدارة الأقسام
@@ -1128,6 +1132,26 @@ async def set_feedback_group_command(update: Update, context: ContextTypes.DEFAU
             f"❌ *تعذر الوصول للمجموعة.* تأكد أن البوت مضاف كعضو.\nخطأ: {e}",
             parse_mode=ParseMode.MARKDOWN
         )
+        # محادثة إضافة كتاب إلى قسم محدد (مع اختيار المؤلف)
+admin_add_book_to_category_conv = ConversationHandler(
+    entry_points=[
+        CallbackQueryHandler(admin_add_book_to_category_start, pattern=r"^adm_addbook_cat_\d+$"),
+        CallbackQueryHandler(admin_new_author_for_book, pattern=r"^adm_newauthor_\d+$"),
+        CallbackQueryHandler(admin_select_author_for_book, pattern=r"^adm_selauthor_\d+_\d+$"),
+    ],
+    states={
+        WAITING_NEW_AUTHOR_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_receive_new_author_name)],
+        WAITING_BOOK_TITLE_FOR_CAT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_book_to_category_receive_title)],
+        WAITING_BOOK_FILE_FOR_CAT: [
+            MessageHandler(filters.Document.ALL, admin_add_book_to_category_receive_file),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_book_to_category_receive_file),
+        ],
+    },
+    fallbacks=[
+        CallbackQueryHandler(cancel_action, pattern="^cancel_action$"),
+        CommandHandler("cancel", cancel_action)
+    ],
+)
 # تجميع جميع المحادثات في قائمة واحدة لسهولة التسجيل
 admin_conversation_handlers = [
     admin_category_conv,
@@ -1138,4 +1162,5 @@ admin_conversation_handlers = [
     admin_search_add_conv,
     admin_edit_book_conv,
     admin_delete_book_conv,
+    admin_add_book_to_category_conv,
 ]
