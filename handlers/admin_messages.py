@@ -51,7 +51,7 @@ custom_msg_handler = ConversationHandler(
         SET_MSG_CONTENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_custom_msg)],
     },
     fallbacks=[CommandHandler("cancel", cancel_custom_msg)],
-    per_message=True # Add per_message=True as requested in fixes
+   
 )
 
 # Register handler in main.py:
