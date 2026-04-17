@@ -147,5 +147,5 @@ feedback_conversation_handler = ConversationHandler(
         CommandHandler("cancel", cancel_feedback),
         CallbackQueryHandler(cancel_feedback, pattern="^cancel_action$"),
     ],
-    per_message=True
+    
 )
