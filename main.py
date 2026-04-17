@@ -211,8 +211,5 @@ def main() -> None:
     # allowed_updates=Update.ALL_TYPES يسمح للبوت بالعمل في المجموعات أيضاً
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
-def get_book_keyboard(book_id, file_id=None, file_link=None, is_favorite=False):
-    """واجهة موحدة لاستدعاء book_detail_keyboard"""
-    return book_detail_keyboard(book_id, file_id, file_link, is_favorite)
 if __name__ == "__main__":
     main()
