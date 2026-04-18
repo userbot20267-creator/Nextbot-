@@ -30,8 +30,9 @@ from keyboards import (
     cancel_only_keyboard,
     confirm_cancel_keyboard,
     main_menu,
-admin_category_books_keyboard,   # ضروري
+    admin_category_books_keyboard,   # ضروري
     admin_select_author_keyboard,    # ضروري
+    admin_ai_tools_keyboard, 
 )
 from utils import broadcast_message
 
