@@ -29,127 +29,142 @@ def is_auto_fetch_enabled() -> bool:
 # ---------- تهيئة الجداول ----------
 def init_db():
     """إنشاء جميع الجداول إذا لم تكن موجودة"""
-    conn = get_connection()
+    # إنشاء اتصال جديد خاص بالتهيئة
+    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     cur = conn.cursor()
-    # جدول المستخدمين
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id BIGINT PRIMARY KEY,
-            username TEXT,
-            first_name TEXT,
-            last_name TEXT,
-            joined_at TIMESTAMP DEFAULT NOW(),
-            is_banned BOOLEAN DEFAULT FALSE,
-            last_activity TIMESTAMP DEFAULT NOW()
-        )
-    """)
     
-    # إضافة عمود points إلى users إذا لم يكن موجوداً
-    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
-    
-    # جدول الأقسام
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS categories (
-            id SERIAL PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL
-        )
-    """)
-    
-    # جدول المؤلفين (مرتبط بقسم)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS authors (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            category_id INT REFERENCES categories(id) ON DELETE CASCADE,
-            UNIQUE(name, category_id)
-        )
-    """)
-    
-    # جدول الكتب
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS books (
-            id SERIAL PRIMARY KEY,
-            title TEXT NOT NULL,
-            author_id INT REFERENCES authors(id) ON DELETE CASCADE,
-            file_id TEXT,
-            file_link TEXT,
-            added_by BIGINT,
-            download_count INT DEFAULT 0,
-            created_at TIMESTAMP DEFAULT NOW()
-        )
-    """)
-    cur.execute("ALTER TABLE books ADD COLUMN IF NOT EXISTS description TEXT")
-    # جدول الإعدادات
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-    """)
+    try:
+        # 1️⃣ جدول المستخدمين
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id BIGINT PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                joined_at TIMESTAMP DEFAULT NOW(),
+                is_banned BOOLEAN DEFAULT FALSE,
+                last_activity TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        # إضافة عمود points
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0")
+        # إضافة عمود referred_by
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT")
+        
+        # 2️⃣ جدول الأقسام
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id SERIAL PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL
+            )
+        """)
+        
+        # 3️⃣ جدول المؤلفين
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS authors (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                category_id INT REFERENCES categories(id) ON DELETE CASCADE,
+                UNIQUE(name, category_id)
+            )
+        """)
+        
+        # 4️⃣ جدول الكتب
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS books (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                author_id INT REFERENCES authors(id) ON DELETE CASCADE,
+                file_id TEXT,
+                file_link TEXT,
+                added_by BIGINT,
+                download_count INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("ALTER TABLE books ADD COLUMN IF NOT EXISTS description TEXT")
+        
+        # 5️⃣ جدول الإعدادات
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
 
-    # جدول المساعدين الإداريين
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS admins (
-            user_id BIGINT PRIMARY KEY,
-            added_by BIGINT NOT NULL,
-            can_manage_books BOOLEAN DEFAULT FALSE,
-            can_manage_categories BOOLEAN DEFAULT FALSE,
-            can_manage_users BOOLEAN DEFAULT FALSE,
-            can_broadcast BOOLEAN DEFAULT FALSE,
-            can_view_stats BOOLEAN DEFAULT TRUE,
-            can_lock_bot BOOLEAN DEFAULT FALSE,
-            added_at TIMESTAMP DEFAULT NOW()
-        )
-    """)
+        # 6️⃣ جدول المساعدين الإداريين
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                user_id BIGINT PRIMARY KEY,
+                added_by BIGINT NOT NULL,
+                can_manage_books BOOLEAN DEFAULT FALSE,
+                can_manage_categories BOOLEAN DEFAULT FALSE,
+                can_manage_users BOOLEAN DEFAULT FALSE,
+                can_broadcast BOOLEAN DEFAULT FALSE,
+                can_view_stats BOOLEAN DEFAULT TRUE,
+                can_lock_bot BOOLEAN DEFAULT FALSE,
+                added_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
 
-    # جدول المفضلة
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS favorites (
-            user_id BIGINT NOT NULL,
-            book_id INTEGER NOT NULL,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (user_id, book_id),
-            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-        )
-    """)
+        # 7️⃣ جدول المفضلة
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS favorites (
+                user_id BIGINT NOT NULL,
+                book_id INTEGER NOT NULL,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, book_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            )
+        """)
 
-    # جدول سجل التحميلات
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS download_history (
-            user_id BIGINT NOT NULL,
-            book_id INTEGER NOT NULL,
-            downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (user_id, book_id, downloaded_at),
-            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-            FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-        )
-    """)
+        # 8️⃣ جدول سجل التحميلات
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS download_history (
+                user_id BIGINT NOT NULL,
+                book_id INTEGER NOT NULL,
+                downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, book_id, downloaded_at),
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            )
+        """)
+        
+        # 9️⃣ جدول التقييمات
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS ratings (
+                user_id BIGINT NOT NULL,
+                book_id INTEGER NOT NULL,
+                rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+                rated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, book_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            )
+        """)
 
-    conn.commit()
-    cur.close()
-    conn.close()
-    # جدول الإحالات
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS referrals (
-            id SERIAL PRIMARY KEY,
-            referrer_id BIGINT NOT NULL,
-            referred_id BIGINT NOT NULL UNIQUE,
-            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (referrer_id) REFERENCES users(user_id) ON DELETE CASCADE,
-            FOREIGN KEY (referred_id) REFERENCES users(user_id) ON DELETE CASCADE
-        )
-    """)
+        # 🔟 جدول الإحالات
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS referrals (
+                id SERIAL PRIMARY KEY,
+                referrer_id BIGINT NOT NULL,
+                referred_id BIGINT NOT NULL UNIQUE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (referrer_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (referred_id) REFERENCES users(user_id) ON DELETE CASCADE
+            )
+        """)
 
-    # إضافة عمود referred_by إلى users
-    cur.execute("""
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT
-   """)
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
 
     # إعدادات افتراضية
     if not get_setting("auto_fetch_enabled"):
         set_auto_fetch_enabled(False)
-    
 
 # ---------- دوال المستخدمين ----------
 def add_user(user_id: int, username: str, first_name: str, last_name: str):
