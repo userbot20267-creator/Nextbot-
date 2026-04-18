@@ -111,7 +111,6 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         except Exception as e:
             logger.error(f"فشل في إرسال تنبيه الخطأ للمالك: {e}")
 
-
 # ---------- دالة بدء التشغيل ----------
 async def post_init(application: Application) -> None:
     """تُنفذ بعد تهيئة التطبيق مباشرة"""
@@ -120,30 +119,31 @@ async def post_init(application: Application) -> None:
     logger.info("✅ تم التحقق من جداول قاعدة البيانات")
 
     # جدولة المهام الدورية
-job_queue = application.job_queue
-if job_queue:
-    # 1. جدولة مهمة يومية للجلب التلقائي (الساعة 3 صباحاً بالتوقيت العالمي)
-    job_queue.run_daily(
-        daily_auto_fetch,
-        time=datetime.time(hour=3, minute=0, tzinfo=datetime.timezone.utc),
-        name="daily_auto_fetch"
-    )
-    logger.info("✅ تمت جدولة مهمة الجلب اليومي")
+    job_queue = application.job_queue
+    if job_queue:
+        # 1. جدولة مهمة يومية للجلب التلقائي (الساعة 3 صباحاً بالتوقيت العالمي)
+        job_queue.run_daily(
+            daily_auto_fetch,
+            time=datetime.time(hour=3, minute=0, tzinfo=datetime.timezone.utc),
+            name="daily_auto_fetch"
+        )
+        logger.info("✅ تمت جدولة مهمة الجلب اليومي")
 
-    # 2. جدولة النسخ الاحتياطي التلقائي (الساعة 4 صباحاً بالتوقيت العالمي)
-    job_queue.run_daily(
-        run_backup,
-        time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
-        name="auto_backup"
-    )
-    logger.info("✅ تمت جدولة مهمة النسخ الاحتياطي اليومي")
+        # 2. جدولة النسخ الاحتياطي التلقائي (الساعة 4 صباحاً بالتوقيت العالمي)
+        job_queue.run_daily(
+            run_backup,
+            time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
+            name="auto_backup"
+        )
+        logger.info("✅ تمت جدولة مهمة النسخ الاحتياطي اليومي")
 
-    # 3. جدولة التقرير الأسبوعي (كل يوم أحد 9 صباحاً)
-    schedule_weekly_report(application)
-    logger.info("✅ تمت جدولة التقرير الأسبوعي")
-    # 4. جدولة تذكيرات الكتب غير المكتملة 🆕
-     schedule_reminders(application)
-     logger.info("✅ تمت جدولة تذكيرات الكتب غير المكتملة")
+        # 3. جدولة التقرير الأسبوعي (كل يوم أحد 9 صباحاً)
+        schedule_weekly_report(application)
+        logger.info("✅ تمت جدولة التقرير الأسبوعي")
+
+        # 4. جدولة تذكيرات الكتب غير المكتملة
+        schedule_reminders(application)
+        logger.info("✅ تمت جدولة تذكيرات الكتب غير المكتملة")
 
     try:
         await application.bot.send_message(
@@ -153,6 +153,7 @@ if job_queue:
         )
     except Exception as e:
         logger.warning(f"لم يتم إرسال رسالة بدء التشغيل للمالك: {e}")
+
 
 
 # ---------- الدالة الرئيسية ----------
