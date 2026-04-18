@@ -61,6 +61,7 @@ from services.backup import run_backup
 # ---------- استيراد ميزات مجلد features ----------
 from features.pdf_summarizer import register_handlers as register_pdf_handlers
 from features.similar_books import register_handlers as register_similar_handlers
+from features.user_profile import register_handlers as register_profile_handlers   # 🆕
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -208,10 +209,10 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(list_all_users, pattern="^admin_users_list$"))
     application.add_handler(CallbackQueryHandler(export_users_csv, pattern="^admin_export_users$"))
     application.add_handler(custom_msg_handler)  # ConversationHandler
-
     # --- تسجيل معالجات ميزات مجلد features ---
     register_pdf_handlers(application)
     register_similar_handlers(application)
+    register_profile_handlers(application)   # 🆕
 
     # أمر تعيين مجموعة الملاحظات
     application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
