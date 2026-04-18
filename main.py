@@ -60,7 +60,7 @@ from services.backup import run_backup
 
 # ---------- استيراد ميزات مجلد features ----------
 from features.pdf_summarizer import register_handlers as register_pdf_handlers
-
+from features.similar_books import register_handlers as register_similar_handlers
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -211,6 +211,7 @@ def main() -> None:
 
     # --- تسجيل معالجات ميزات مجلد features ---
     register_pdf_handlers(application)
+    register_similar_handlers(application)
 
     # أمر تعيين مجموعة الملاحظات
     application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
