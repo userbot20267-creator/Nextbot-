@@ -278,7 +278,11 @@ async def admin_add_book_manual_start(update: Update, context: ContextTypes.DEFA
     )
     return WAITING_BOOK_TITLE
 
-
+async def admin_ai_tools_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("🤖 *أدوات الذكاء الاصطناعي*", reply_markup=admin_ai_tools_keyboard(), parse_mode=ParseMode.MARKDOWN)
+    
 async def admin_add_book_title_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["book_title"] = update.message.text.strip()
     await update.message.reply_text(
