@@ -228,7 +228,6 @@ async def list_admins_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 # ---------- تجميع الـ Handlers ----------
 admin_roles_handlers = [
-    CommandHandler("addadmin", add_admin_start),
     CommandHandler("removeadmin", remove_admin_cmd),
     CommandHandler("listadmins", list_admins_cmd),
 ]
