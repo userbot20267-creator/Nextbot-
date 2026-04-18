@@ -148,6 +148,7 @@ def admin_panel_keyboard():
         [InlineKeyboardButton("📣 إذاعة رسالة", callback_data="admin_broadcast")],
         [InlineKeyboardButton("🔍 بحث وإضافة كتاب", callback_data="admin_search_add_book")],
         [InlineKeyboardButton("📝 تخصيص الرسائل", callback_data="admin_custom_msgs")],
+        [InlineKeyboardButton("🤖 أدوات ذكاء اصطناعي", callback_data="admin_ai_tools")],
         [InlineKeyboardButton("❌ إغلاق", callback_data="admin_close")]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -218,7 +219,13 @@ def admin_stats_keyboard():
         [InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")]
     ]
     return InlineKeyboardMarkup(keyboard)
-
+def admin_ai_tools_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("📝 توليد وصف تلقائي", callback_data="generate_description")],
+        [InlineKeyboardButton("📂 اقتراح قسم تلقائي", callback_data="suggest_category")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 # ---------- أزرار الاشتراك الإجباري ----------
 def subscription_required_keyboard(channels):
     """يُعرض للمستخدم الذي لم يشترك في القنوات المطلوبة"""
