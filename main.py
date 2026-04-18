@@ -30,7 +30,7 @@ from handlers.admin import (
     admin_handler,
     admin_callback_handlers,
     admin_conversation_handlers,
-    set_feedback_group_command,   # <-- تم استيراد الأمر هنا
+    set_feedback_group_command,
 )
 from handlers.user import (
     user_command_handlers,
@@ -57,6 +57,9 @@ from handlers.admin_messages import custom_msg_handler
 from handlers.admin_users_list import list_all_users
 from handlers.admin_download import admin_download_handler
 from services.backup import run_backup
+
+# ---------- استيراد ميزات مجلد features ----------
+from features.pdf_summarizer import register_handlers as register_pdf_handlers
 
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
@@ -120,7 +123,7 @@ async def post_init(application: Application) -> None:
         )
         logger.info("✅ تمت جدولة مهمة الجلب اليومي")
 
-        # 2. جدولة النسخ الاحتياطي التلقائي (الساعة 4 صباحاً بالتوقيت العالمي) - [جديد]
+        # 2. جدولة النسخ الاحتياطي التلقائي (الساعة 4 صباحاً بالتوقيت العالمي)
         job_queue.run_daily(
             run_backup,
             time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
@@ -144,7 +147,7 @@ def main() -> None:
     application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     # --- تسجيل الوسائط (Middleware) ---
-    # تسجيل وسيط حماية Rate Limit في المجموعة -2 (يعمل قبل الكل) - [جديد]
+    # تسجيل وسيط حماية Rate Limit في المجموعة -2 (يعمل قبل الكل)
     application.add_handler(TypeHandler(Update, rate_limit_check), group=-2)
     
     # تسجيل وسيط القفل كـ TypeHandler في المجموعة -1 (يعمل ثانياً)
@@ -187,7 +190,7 @@ def main() -> None:
     for handler in admin_auto_handlers:
         application.add_handler(handler)
 
-    # --- تسجيل معالجات الميزات الجديدة المضافة حديثاً --- [جديد]
+    # --- تسجيل معالجات الميزات الجديدة المضافة حديثاً ---
     # 1. أوامر المستخدم الجديدة
     application.add_handler(CommandHandler(["me", "points"], show_points))
     
@@ -204,9 +207,12 @@ def main() -> None:
     # 3. معالجات الإدمن الجديدة (قائمة المستخدمين، تصدير CSV، تخصيص الرسائل)
     application.add_handler(CallbackQueryHandler(list_all_users, pattern="^admin_users_list$"))
     application.add_handler(CallbackQueryHandler(export_users_csv, pattern="^admin_export_users$"))
-    application.add_handler(custom_msg_handler) # ConversationHandler
+    application.add_handler(custom_msg_handler)  # ConversationHandler
 
-    # أمر تعيين مجموعة الملاحظات (قديم)
+    # --- تسجيل معالجات ميزات مجلد features ---
+    register_pdf_handlers(application)
+
+    # أمر تعيين مجموعة الملاحظات
     application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
 
     application.add_error_handler(error_handler)
@@ -214,6 +220,7 @@ def main() -> None:
     logger.info("🚀 جاري تشغيل البوت...")
     # allowed_updates=Update.ALL_TYPES يسمح للبوت بالعمل في المجموعات أيضاً
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     main()
