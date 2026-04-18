@@ -97,6 +97,8 @@ def book_detail_keyboard(book_id: int, file_id: str = None, file_link: str = Non
     # صف التلخيص
     keyboard.append([InlineKeyboardButton("📝 تلخيص الكتاب (AI)", callback_data=f"summarize_book_{book_id}")])
     
+    # صف كتب مشابهة (جديد)
+    keyboard.append([InlineKeyboardButton("📚 كتب مشابهة", callback_data=f"similar_books_{book_id}")])
     keyboard.append([InlineKeyboardButton("🔙 العودة للكتب", callback_data=f"back_books_{book_id}")])
     return InlineKeyboardMarkup(keyboard)
 
