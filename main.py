@@ -63,6 +63,7 @@ from features.pdf_summarizer import register_handlers as register_pdf_handlers
 from features.similar_books import register_handlers as register_similar_handlers
 from features.user_profile import register_handlers as register_profile_handlers   # 🆕
 from features.weekly_report import schedule_weekly_report   # 🆕
+from features.referral import register_handlers as register_referral_handlers   # 🆕
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -218,6 +219,7 @@ def main() -> None:
     register_pdf_handlers(application)
     register_similar_handlers(application)
     register_profile_handlers(application)   # 🆕
+    register_referral_handlers(application)   # 🆕
 
     # أمر تعيين مجموعة الملاحظات
     application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
