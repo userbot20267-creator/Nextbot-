@@ -31,7 +31,6 @@ def init_db():
     """إنشاء جميع الجداول إذا لم تكن موجودة"""
     conn = get_connection()
     cur = conn.cursor()
-    
     # جدول المستخدمين
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -130,6 +129,22 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+    # جدول الإحالات
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            id SERIAL PRIMARY KEY,
+            referrer_id BIGINT NOT NULL,
+            referred_id BIGINT NOT NULL UNIQUE,
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (referrer_id) REFERENCES users(user_id) ON DELETE CASCADE,
+            FOREIGN KEY (referred_id) REFERENCES users(user_id) ON DELETE CASCADE
+        )
+    """)
+
+    # إضافة عمود referred_by إلى users
+    cur.execute("""
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT
+   """)
 
     # إعدادات افتراضية
     if not get_setting("auto_fetch_enabled"):
@@ -790,3 +805,47 @@ def get_user_downloads_count(user_id: int) -> int:
     cur.close()
     conn.close()
     return row['cnt'] if row else 0
+
+
+# ---------- دوال الإحالة (Referral) ----------
+def add_referral(referrer_id: int, referred_id: int):
+    """تسجيل عملية إحالة جديدة"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO referrals (referrer_id, referred_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (referrer_id, referred_id)
+            )
+            conn.commit()
+
+
+def set_user_referrer(user_id: int, referrer_id: int):
+    """تعيين المُحيل للمستخدم"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET referred_by = %s WHERE user_id = %s",
+                (referrer_id, user_id)
+            )
+            conn.commit()
+
+
+def get_user_referrer(user_id: int) -> int | None:
+    """جلب معرف المُحيل لمستخدم معين"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT referred_by FROM users WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            return row['referred_by'] if row else None
+
+
+def get_user_referrals(user_id: int) -> list:
+    """جلب قائمة المستخدمين الذين انضموا عبر رابط إحالة هذا المستخدم"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT referred_id, joined_at FROM referrals
+                WHERE referrer_id = %s ORDER BY joined_at DESC
+            """, (user_id,))
+            return cur.fetchall()
+            
