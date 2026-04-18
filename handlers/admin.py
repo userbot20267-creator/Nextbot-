@@ -935,6 +935,7 @@ admin_callback_handlers = [
     CallbackQueryHandler(admin_new_author_for_book, pattern=r"^adm_newauthor_\d+$"),
     CallbackQueryHandler(admin_select_author_for_book, pattern=r"^adm_selauthor_\d+_\d+$"),
     CallbackQueryHandler(admin_list_books_in_category, pattern=r"^adm_listbooks_cat_\d+$"),
+    CallbackQueryHandler(admin_ai_tools_menu, pattern="^admin_ai_tools$"),
     CallbackQueryHandler(admin_delete_book_start, pattern="^admin_delete_book$"),
 ]
 # محادثة إدارة الأقسام
