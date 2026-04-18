@@ -19,3 +19,30 @@ pydantic==1.10.13
 requests==2.31.0
 flask==3.0.0
 aiofiles==24.1.0
+# requirements.txt
+
+# مكتبة تليجرام الأساسية
+python-telegram-bot[job-queue]==20.7
+
+# الاتصال بقاعدة بيانات PostgreSQL
+psycopg[binary]==3.2.1
+
+# تحميل المتغيرات البيئية من ملف .env
+python-dotenv==1.0.0
+
+# طلبات HTTP غير متزامنة (للبحث الخارجي)
+aiohttp==3.9.5
+
+# نماذج التحقق من البيانات (Pydantic)
+pydantic==1.10.13
+
+# مكتبة requests (اختيارية، قد تستخدم في بعض الأماكن)
+requests==2.31.0
+flask==3.0.0
+aiofiles==24.1.0
+
+# --- مكتبات ميزة تلخيص PDF ---
+PyPDF2==3.0.1                      # استخراج النص من ملفات PDF
+
+# --- مكتبات مساعدة (موجودة مسبقاً لكن نضمن وجودها) ---
+python-dateutil==2.8.2             # معالجة التواريخ (للمهام المجدولة)
