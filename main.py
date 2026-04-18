@@ -62,6 +62,7 @@ from services.backup import run_backup
 from features.pdf_summarizer import register_handlers as register_pdf_handlers
 from features.similar_books import register_handlers as register_similar_handlers
 from features.user_profile import register_handlers as register_profile_handlers   # 🆕
+from features.weekly_report import schedule_weekly_report   # 🆕
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -114,23 +115,27 @@ async def post_init(application: Application) -> None:
     logger.info("✅ تم التحقق من جداول قاعدة البيانات")
 
     # جدولة المهام الدورية
-    job_queue = application.job_queue
-    if job_queue:
-        # 1. جدولة مهمة يومية للجلب التلقائي (الساعة 3 صباحاً بالتوقيت العالمي)
-        job_queue.run_daily(
-            daily_auto_fetch,
-            time=datetime.time(hour=3, minute=0, tzinfo=datetime.timezone.utc),
-            name="daily_auto_fetch"
-        )
-        logger.info("✅ تمت جدولة مهمة الجلب اليومي")
+job_queue = application.job_queue
+if job_queue:
+    # 1. جدولة مهمة يومية للجلب التلقائي (الساعة 3 صباحاً بالتوقيت العالمي)
+    job_queue.run_daily(
+        daily_auto_fetch,
+        time=datetime.time(hour=3, minute=0, tzinfo=datetime.timezone.utc),
+        name="daily_auto_fetch"
+    )
+    logger.info("✅ تمت جدولة مهمة الجلب اليومي")
 
-        # 2. جدولة النسخ الاحتياطي التلقائي (الساعة 4 صباحاً بالتوقيت العالمي)
-        job_queue.run_daily(
-            run_backup,
-            time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
-            name="auto_backup"
-        )
-        logger.info("✅ تمت جدولة مهمة النسخ الاحتياطي اليومي")
+    # 2. جدولة النسخ الاحتياطي التلقائي (الساعة 4 صباحاً بالتوقيت العالمي)
+    job_queue.run_daily(
+        run_backup,
+        time=datetime.time(hour=4, minute=0, tzinfo=datetime.timezone.utc),
+        name="auto_backup"
+    )
+    logger.info("✅ تمت جدولة مهمة النسخ الاحتياطي اليومي")
+
+    # 3. جدولة التقرير الأسبوعي (كل يوم أحد 9 صباحاً)
+    schedule_weekly_report(application)
+    logger.info("✅ تمت جدولة التقرير الأسبوعي")
 
     try:
         await application.bot.send_message(
