@@ -838,7 +838,6 @@ def get_user_referrer(user_id: int) -> int | None:
             row = cur.fetchone()
             return row['referred_by'] if row else None
 
-
 def get_user_referrals(user_id: int) -> list:
     """جلب قائمة المستخدمين الذين انضموا عبر رابط إحالة هذا المستخدم"""
     with get_connection() as conn:
@@ -848,8 +847,9 @@ def get_user_referrals(user_id: int) -> list:
                 WHERE referrer_id = %s ORDER BY joined_at DESC
             """, (user_id,))
             return cur.fetchall()
- def save_book_description(book_id: int, description: str):
+
+def save_book_description(book_id: int, description: str):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE books SET description = %s WHERE id = %s", (description, book_id))
-            conn.commit()           
+            conn.commit()
