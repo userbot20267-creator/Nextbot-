@@ -161,13 +161,13 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
                 await status_msg.delete()
 
                 # اختياري: حفظ الكتاب في قاعدة البيانات للمكتبة المحلية
-                cat_id = ensure_uncategorized_category()
-                success, author_id = db.add_author(author, cat_id)
-                if not success:
-                    authors = db.get_authors_by_category(cat_id)
-                    author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
-                if author_id:
-                    db.add_book(title, author_id, file_id=file_id, added_by=user_id)
+               # cat_id = ensure_uncategorized_category()
+            #    success, author_id = db.add_author(author, cat_id)
+            #    if not success:
+               #     authors = db.get_authors_by_category(cat_id)
+             #       author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
+           #     if author_id:
+            #        db.add_book(title, author_id, file_id=file_id, added_by=user_id)
 
             except Exception as e:
                 await status_msg.edit_text(f"❌ فشل إرسال الملف: {e}")
