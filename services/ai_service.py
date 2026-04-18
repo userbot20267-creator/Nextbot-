@@ -1,5 +1,10 @@
+# services/ai_service.py
 import aiohttp
+import asyncio
+import json
+import re
 from config import OPENROUTER_API_KEY
+
 
 async def summarize_book_text(book_title, book_description=""):
     """Summarizes a book using OpenRouter API."""
@@ -15,7 +20,7 @@ async def summarize_book_text(book_title, book_description=""):
     prompt = f"قم بكتابة ملخص شامل وشيق لكتاب بعنوان '{book_title}' {f'ووصفه هو: {book_description}' if book_description else ''}. اجعل الملخص باللغة العربية، يركز على النقاط الرئيسية والدروس المستفادة، ولا يتجاوز 250 كلمة."
     
     payload = {
-        "model": "google/gemini-2.0-flash-exp:free", # Free or preferred model
+        "model": "google/gemini-2.0-flash-exp:free",  # Free or preferred model
         "messages": [
             {"role": "user", "content": prompt}
         ]
@@ -31,14 +36,13 @@ async def summarize_book_text(book_title, book_description=""):
                     return f"❌ حدث خطأ أثناء الاتصال بخدمة الذكاء الاصطناعي (كود: {response.status})."
     except Exception as e:
         return f"❌ خطأ غير متوقع: {str(e)}"
-# ---------- دوال جديدة للبحث الذكي ----------
-import asyncio
-import json
-import re
 
+
+# ---------- دوال جديدة للبحث الذكي ----------
 async def ai_search_book(query: str) -> dict | None:
     """استخدام OpenRouter لتحليل طلب المستخدم واستخراج عنوان الكتاب واسم المؤلف."""
     if not OPENROUTER_API_KEY:
+        print("❌ OPENROUTER_API_KEY غير موجود.")
         return None
 
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -47,44 +51,56 @@ async def ai_search_book(query: str) -> dict | None:
         "Content-Type": "application/json"
     }
     
-    prompt = f"""حلل طلب المستخدم التالي: "{query}"
-استخرج عنوان الكتاب واسم المؤلف. أعد النتيجة بصيغة JSON فقط بدون أي نص إضافي.
-مثال للنتيجة المطلوبة:
-{{"title": "الخيميائي", "author": "باولو كويلو"}}
-إذا لم تستطع تحديد أحدهما، استخدم قيمة "غير معروف".
-أعد JSON فقط:"""
+    # تحسين الصيغة لإجبار النموذج على إخراج JSON فقط
+    prompt = f"""استخرج عنوان الكتاب واسم المؤلف من النص التالي. أعد النتيجة بصيغة JSON صالحة فقط، بدون أي تعليقات إضافية.
+مثال: {{"title": "الخيميائي", "author": "باولو كويلو"}}
+النص: "{query}"
+JSON:"""
 
     payload = {
-        "model": "google/gemini-2.0-flash-exp:free",  # نموذج مجاني
+        "model": "google/gemini-2.0-flash-exp:free",  # يمكن تغييره إلى "openai/gpt-3.5-turbo" إذا استمرت المشكلة
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_tokens": 150
     }
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload, timeout=20) as resp:
+            async with session.post(url, headers=headers, json=payload, timeout=30) as resp:
                 if resp.status != 200:
                     print(f"⚠️ OpenRouter API error: {resp.status}")
                     return None
                 
                 data = await resp.json()
                 if "choices" not in data:
+                    print("❌ الاستجابة لا تحتوي على 'choices'")
                     return None
                 
                 content = data["choices"][0]["message"]["content"].strip()
-                # محاولة استخراج JSON من النص
-                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                print(f"🔍 استجابة النموذج: {content}")  # للتشخيص
+                
+                # محاولة استخراج JSON باستخدام تعبير منتظم
+                json_match = re.search(r'\{[^{}]*\}', content, re.DOTALL)
                 if json_match:
                     content = json_match.group()
+                else:
+                    # إذا فشل، حاول إصلاح الأخطاء الشائعة (مثل علامات التنصيص)
+                    content = content.replace("'", '"')
                 
                 result = json.loads(content)
                 return {
                     "title": result.get("title", "غير معروف"),
                     "author": result.get("author", "غير معروف")
                 }
-    except json.JSONDecodeError:
-        print(f"⚠️ فشل تحليل JSON من OpenRouter: {content}")
+    except json.JSONDecodeError as e:
+        print(f"⚠️ فشل تحليل JSON: {e}\nالمحتوى: {content}")
+        # محاولة أخيرة: استخراج يدوي إذا كان النص بسيطاً
+        if "title" in content.lower() and "author" in content.lower():
+            # محاولة بدائية لاستخراج القيم
+            title_match = re.search(r'"title"\s*:\s*"([^"]*)"', content)
+            author_match = re.search(r'"author"\s*:\s*"([^"]*)"', content)
+            if title_match and author_match:
+                return {"title": title_match.group(1), "author": author_match.group(1)}
         return None
     except asyncio.TimeoutError:
         print("⚠️ مهلة OpenRouter للبحث الذكي")
