@@ -65,6 +65,9 @@ from features.user_profile import register_handlers as register_profile_handlers
 from features.weekly_report import schedule_weekly_report   # 🆕
 from features.referral import register_handlers as register_referral_handlers   # 🆕
 from features.deep_link import register_handlers as register_deep_link_handlers
+from features.auto_description import register_handlers as register_desc_handlers      # 🆕
+from features.auto_category import register_handlers as register_cat_handlers          # 🆕
+from features.reminders import schedule_reminders                                      # 🆕
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -138,6 +141,9 @@ if job_queue:
     # 3. جدولة التقرير الأسبوعي (كل يوم أحد 9 صباحاً)
     schedule_weekly_report(application)
     logger.info("✅ تمت جدولة التقرير الأسبوعي")
+    # 4. جدولة تذكيرات الكتب غير المكتملة 🆕
+     schedule_reminders(application)
+     logger.info("✅ تمت جدولة تذكيرات الكتب غير المكتملة")
 
     try:
         await application.bot.send_message(
@@ -222,6 +228,9 @@ def main() -> None:
     register_profile_handlers(application)   # 🆕
     register_referral_handlers(application)   # 🆕
     register_deep_link_handlers(application)
+    register_desc_handlers(application)   # 🆕
+    register_cat_handlers(application)    # 🆕
+
 
     # أمر تعيين مجموعة الملاحظات
     application.add_handler(CommandHandler("setfeedbackgroup", set_feedback_group_command))
