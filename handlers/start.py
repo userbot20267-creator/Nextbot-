@@ -40,6 +40,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         pass  # تجاهل إذا فشل إرسال الإشعار (مثلاً المستخدم حظر البوت)
         except ValueError:
             pass  # معرف غير صالح، تجاهل
+    # --- معالجة الرابط العميق للكتاب ---
+    book_id_to_send = None
+    if args:
+        for arg in args:
+            if arg.startswith("book_"):
+                try:
+                    book_id_to_send = int(arg[5:])
+                    break
+                except ValueError:
+                    pass
 
     # --- فحص الاشتراك الإجباري ---
     is_subscribed, _ = await check_user_subscription(context.bot, user_id)
