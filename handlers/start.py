@@ -8,16 +8,40 @@ import database as db
 from keyboards import main_menu, subscription_required_keyboard
 from utils import check_user_subscription, get_required_channels_from_db
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """أمر /start - تسجيل المستخدم وفحص الاشتراك الإجباري"""
+    """أمر /start - تسجيل المستخدم وفحص الاشتراك الإجباري مع دعم الإحالة"""
     user = update.effective_user
     user_id = user.id
     username = user.username or ""
     first_name = user.first_name or ""
     last_name = user.last_name or ""
 
+    # إضافة المستخدم إلى قاعدة البيانات
     db.add_user(user_id, username, first_name, last_name)
 
+    # --- معالجة الإحالة إذا وجدت ---
+    args = context.args
+    if args and args[0].startswith("ref_"):
+        try:
+            referrer_id = int(args[0][4:])
+            if referrer_id != user_id:
+                # استيراد دالة معالجة الإحالة من ميزة referral
+                from features.referral.services import process_referral
+                success = process_referral(user_id, referrer_id)
+                if success:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=referrer_id,
+                            text="🎉 *مبروك!* انضم مستخدم جديد عبر رابط الإحالة الخاص بك وحصلت على 50 نقطة!",
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                    except:
+                        pass  # تجاهل إذا فشل إرسال الإشعار (مثلاً المستخدم حظر البوت)
+        except ValueError:
+            pass  # معرف غير صالح، تجاهل
+
+    # --- فحص الاشتراك الإجباري ---
     is_subscribed, _ = await check_user_subscription(context.bot, user_id)
 
     if not is_subscribed:
@@ -30,12 +54,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    # --- رسالة الترحيب للمستخدم المشترك ---
     await update.message.reply_text(
         f"👋 *أهلاً بك {first_name} في مكتبة البوت الذكية!*\n\n"
         "يمكنك تصفح الأقسام، البحث عن كتاب، أو استكشاف آلاف الكتب.",
         reply_markup=main_menu(),
         parse_mode=ParseMode.MARKDOWN
     )
+
 
 async def check_subscription_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """يتم استدعاؤه عند ضغط المستخدم على 'تحققت من الاشتراك'"""
@@ -62,6 +88,7 @@ async def check_subscription_callback(update: Update, context: ContextTypes.DEFA
             parse_mode=ParseMode.MARKDOWN
         )
 
+
 async def about(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """زر 'حول البوت'"""
     query = update.callback_query
@@ -76,6 +103,7 @@ async def about(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode=ParseMode.MARKDOWN
     )
 
+
 async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """زر العودة للقائمة الرئيسية"""
     query = update.callback_query
@@ -87,10 +115,11 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         parse_mode=ParseMode.MARKDOWN
     )
 
+
 start_handler = CommandHandler("start", start)
 
 callback_handlers = [
     CallbackQueryHandler(check_subscription_callback, pattern="^check_subscription$"),
     CallbackQueryHandler(about, pattern="^about$"),
     CallbackQueryHandler(back_to_main, pattern="^back_main$"),
-        ]
+    ]
