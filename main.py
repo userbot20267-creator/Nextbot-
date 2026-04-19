@@ -73,6 +73,10 @@ from batch_upload import register_handlers as register_batch_handlers# 🆕
 from ai_insights import register_handlers as register_insights_handlers
 from features.describe_existing import register_handlers as register_desc_existing
 from features.books_list import register_handlers as register_books_list
+from features.describe_existing import register_handlers as register_desc_existing
+from features.books_list import register_handlers as register_books_list
+from features.admin_advanced_search import register_handlers as register_adv_search
+from features.ai_recategorize import register_handlers as register_ai_recategorize
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -241,6 +245,11 @@ def main() -> None:
     register_insights_handlers(application)
     register_desc_existing(application)
     register_books_list(application)
+    # تسجيل الميزات الجديدة
+    register_desc_existing(application)
+    register_books_list(application)
+    register_adv_search(application)
+    register_ai_recategorize(application)
 
 
     # أمر تعيين مجموعة الملاحظات
