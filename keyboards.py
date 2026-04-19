@@ -1,5 +1,6 @@
 # keyboards.py
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from comments.keyboards import get_comment_button
 
 # ---------- القوائم الرئيسية للمستخدم العادي ----------
 def main_menu():
@@ -101,6 +102,8 @@ def book_detail_keyboard(book_id: int, file_id: str = None, file_link: str = Non
     keyboard.append([InlineKeyboardButton("📚 كتب مشابهة", callback_data=f"similar_books_{book_id}")])
     # صف مشاركة (جديد)
     keyboard.append([InlineKeyboardButton("🔗 مشاركة الكتاب", callback_data=f"share_book_{book_id}")])
+    # صف التعليقات (جديد)
+    keyboard.append([get_comment_button(book_id)])
     keyboard.append([InlineKeyboardButton("🔙 العودة للكتب", callback_data=f"back_books_{book_id}")])
     return InlineKeyboardMarkup(keyboard)
 
