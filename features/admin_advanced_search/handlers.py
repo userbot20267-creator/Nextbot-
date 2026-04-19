@@ -174,7 +174,7 @@ async def filter_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         await back_to_filters(update, context)
     elif data == "filter_search":
-    filters = context.user_data.get("adv_filters", {})
+            filters = context.user_data.get("adv_filters", {})
     try:
         books = db.advanced_search_books(
             category_id=filters.get("category_id"),
