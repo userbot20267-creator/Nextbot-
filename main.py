@@ -166,7 +166,7 @@ def main() -> None:
 
     # --- تسجيل الوسائط (Middleware) ---
     # تسجيل وسيط حماية Rate Limit في المجموعة -2 (يعمل قبل الكل)
-    application.add_handler(TypeHandler(Update, rate_limit_check), group=-2)
+   # application.add_handler(TypeHandler(Update, rate_limit_check), group=-2)
     
     # تسجيل وسيط القفل كـ TypeHandler في المجموعة -1 (يعمل ثانياً)
     application.add_handler(TypeHandler(Update, lock_middleware), group=-1)
