@@ -8,6 +8,14 @@ def comments_menu_keyboard(book_id: int):
         [InlineKeyboardButton("🔙 العودة للكتاب", callback_data=f"book_{book_id}")]
     ])
 
+def comment_actions_keyboard(comment_id: int, is_owner: bool = False):
+    """أزرار الإجراءات على تعليق (إعجاب، حذف)"""
+    keyboard = []
+    keyboard.append([InlineKeyboardButton("❤️ إعجاب", callback_data=f"like_comment_{comment_id}")])
+    if is_owner:
+        keyboard.append([InlineKeyboardButton("🗑 حذف", callback_data=f"delete_comment_{comment_id}")])
+    return InlineKeyboardMarkup(keyboard)
+
 def get_comment_button(book_id: int):
     """زر عرض التعليقات في تفاصيل الكتاب"""
     return InlineKeyboardButton("💬 التعليقات", callback_data=f"comments_{book_id}")
