@@ -37,3 +37,4 @@ if not OPENROUTER_API_KEY:
 BOT_USERNAME = os.getenv("BOT_USERNAME")
 if not BOT_USERNAME:
     print("⚠️ تحذير: BOT_USERNAME غير موجود. ميزة الإحالة والروابط العميقة لن تعمل.")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
