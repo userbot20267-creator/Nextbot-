@@ -24,23 +24,31 @@ async def list_books_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def show_books_page(update: Update, context: ContextTypes.DEFAULT_TYPE, page: int):
     """عرض صفحة معينة من قائمة الكتب"""
     offset = page * BOOKS_PER_PAGE
-    books = db.get_books_paginated(limit=BOOKS_PER_PAGE, offset=offset)
-    total_books = db.count_books()
-    total_pages = (total_books + BOOKS_PER_PAGE - 1) // BOOKS_PER_PAGE
+    
+    try:
+        books = db.get_books_paginated(limit=BOOKS_PER_PAGE, offset=offset)
+        total_books = db.count_books()
+    except Exception as e:
+        error_text = f"❌ حدث خطأ أثناء جلب الكتب: {e}"
+        if update.callback_query:
+            await update.callback_query.edit_message_text(error_text)
+        else:
+            await update.message.reply_text(error_text)
+        return
+    
+    total_pages = (total_books + BOOKS_PER_PAGE - 1) // BOOKS_PER_PAGE if total_books > 0 else 1
 
     if not books:
         text = "📭 لا توجد كتب في المكتبة حالياً."
     else:
         text = f"📚 *جميع الكتب (صفحة {page + 1} من {total_pages})*\n\n"
         for book in books:
-            # book: (id, title, file_id, file_link, download_count, author_name, category_name)
             book_id = book[0]
             title = book[1]
             author = book[5] if len(book) > 5 else "غير معروف"
             category = book[6] if len(book) > 6 else "غير مصنف"
             text += f"🆔 `{book_id}` | 📖 {title}\n✍️ {author} | 📁 {category}\n\n"
 
-    # بناء أزرار التنقل بين الصفحات
     keyboard = []
     nav_row = []
     if page > 0:
@@ -49,28 +57,22 @@ async def show_books_page(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
         nav_row.append(InlineKeyboardButton("التالي ➡️", callback_data=f"books_page_{page + 1}"))
     if nav_row:
         keyboard.append(nav_row)
-
-    # زر العودة للوحة التحكم
     keyboard.append([InlineKeyboardButton("🔙 لوحة التحكم", callback_data="admin_back")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
-        # إذا كان التحديث من ضغط زر
         await update.callback_query.edit_message_text(
             text,
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup
         )
     else:
-        # إذا كان من أمر /books
         await update.message.reply_text(
             text,
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup
         )
-
-
 async def books_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالج أزرار التنقل بين صفحات الكتب"""
     query = update.callback_query
