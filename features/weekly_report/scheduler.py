@@ -1,5 +1,6 @@
 # features/weekly_report/scheduler.py
 import datetime
+from apscheduler.triggers.cron import CronTrigger
 from .reporter import send_weekly_report
 
 async def weekly_report_callback(context):
@@ -11,9 +12,8 @@ def schedule_weekly_report(application):
     job_queue = application.job_queue
     if job_queue:
         # تشغيل كل يوم أحد الساعة 9:00 UTC
-        job_queue.run_daily(
+        job_queue.run_custom(
             weekly_report_callback,
-            time=datetime.time(hour=9, minute=0, tzinfo=datetime.timezone.utc),
-            days=(6,),  # 6 = Sunday (Monday is 0)
+            trigger=CronTrigger(day_of_week='sun', hour=9, minute=0, timezone=datetime.timezone.utc),
             name="weekly_report"
         )
