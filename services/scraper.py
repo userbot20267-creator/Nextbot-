@@ -362,7 +362,7 @@ async def download_file_from_url(url: str) -> Optional[str]:
                 if resp.status != 200:
                     return None
                 content = await resp.read()
-                if len(content) > 50 * 1024 * 1024:
+                #if len(content) > 50 * 1024 * 1024:
                     return None
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     tmp.write(content)
