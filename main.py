@@ -70,6 +70,7 @@ from features.auto_category import register_handlers as register_cat_handlers   
 from features.reminders import schedule_reminders     
 from comments import register_handlers as register_comments_handlers
 from batch_upload import register_handlers as register_batch_handlers# 🆕
+from ai_insights import register_handlers as register_insights_handlers
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -235,6 +236,7 @@ def main() -> None:
     register_cat_handlers(application)    # 🆕
     register_comments_handlers(application)
     register_batch_handlers(application)
+    register_insights_handlers(application)
 
 
     # أمر تعيين مجموعة الملاحظات
