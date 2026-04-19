@@ -810,7 +810,58 @@ def get_top_users_by_points(limit: int = 10):
     cur.close()
     conn.close()
     return top
+# database.py
 
+def count_books() -> int:
+    """إجمالي عدد الكتب"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) as cnt FROM books")
+            return cur.fetchone()['cnt']
+
+def get_total_downloads() -> int:
+    """إجمالي عدد التحميلات"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT SUM(download_count) as total FROM books")
+            row = cur.fetchone()
+            return row['total'] if row['total'] else 0
+
+def count_books_without_description() -> int:
+    """عدد الكتب التي ليس لها وصف"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) as cnt FROM books WHERE description IS NULL OR description = ''")
+            return cur.fetchone()['cnt']
+
+def get_categories_stats(limit: int = 5) -> list:
+    """إحصائيات الأقسام: عدد الكتب وإجمالي التحميلات"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT c.name, COUNT(b.id) as book_count, COALESCE(SUM(b.download_count), 0) as downloads
+                FROM categories c
+                LEFT JOIN authors a ON c.id = a.category_id
+                LEFT JOIN books b ON a.id = b.author_id
+                GROUP BY c.id, c.name
+                ORDER BY downloads DESC
+                LIMIT %s
+            """, (limit,))
+            return cur.fetchall()
+
+def get_recent_books(limit: int = 5) -> list:
+    """آخر الكتب المضافة"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.title, c.name as category
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                ORDER BY b.created_at DESC
+                LIMIT %s
+            """, (limit,))
+            return cur.fetchall()
 # تعديل دالة get_user_downloads_count لتصبح فعالة
 def get_user_downloads_count(user_id: int) -> int:
     conn = get_connection()
