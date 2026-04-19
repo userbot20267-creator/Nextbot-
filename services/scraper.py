@@ -358,11 +358,11 @@ async def download_file_from_url(url: str) -> Optional[str]:
     """
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=30) as resp:
+            async with session.get(url, timeout=60) as resp:
                 if resp.status != 200:
                     return None
                 content = await resp.read()
-                #if len(content) > 50 * 1024 * 1024:
+                if len(content) > 200 * 1024 * 1024:
                     return None
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                     tmp.write(content)
