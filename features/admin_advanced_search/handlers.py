@@ -174,7 +174,8 @@ async def filter_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         await back_to_filters(update, context)
     elif data == "filter_search":
-        filters = context.user_data.get("adv_filters", {})
+    filters = context.user_data.get("adv_filters", {})
+    try:
         books = db.advanced_search_books(
             category_id=filters.get("category_id"),
             author_id=filters.get("author_id"),
@@ -183,22 +184,20 @@ async def filter_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             file_type=filters.get("file_type"),
             has_description=filters.get("has_description")
         )
-        if not books:
-            await query.edit_message_text("📭 لا توجد كتب تطابق الفلاتر.", reply_markup=admin_panel_keyboard())
-        else:
-            text = f"📚 *نتائج البحث ({len(books)} كتاب):*\n\n"
-            for b in books[:20]:
-                text += f"🆔 `{b[0]}` | {b[1]} | {b[5]}\n"
-            if len(books) > 20:
-                text += f"\n... و {len(books)-20} كتاب آخر."
-            await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=admin_panel_keyboard())
-        return ConversationHandler.END
-    elif data == "back_to_filters":
-        await back_to_filters(update, context)
+    except Exception as e:
+        await query.answer(f"❌ خطأ في البحث: {e}", show_alert=True)
+        return WAITING_SEARCH_QUERY
+    
+    if not books:
+        await query.edit_message_text("📭 لا توجد كتب تطابق الفلاتر.", reply_markup=admin_panel_keyboard())
     else:
-        await back_to_filters(update, context)
-    return WAITING_SEARCH_QUERY
-
+        text = f"📚 *نتائج البحث ({len(books)} كتاب):*\n\n"
+        for b in books[:20]:
+            text += f"🆔 `{b[0]}` | {b[1]} | {b[5]}\n"
+        if len(books) > 20:
+            text += f"\n... و {len(books)-20} كتاب آخر."
+        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=admin_panel_keyboard())
+    return ConversationHandler.END
 
 async def back_to_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """العودة إلى شاشة الفلاتر الرئيسية"""
