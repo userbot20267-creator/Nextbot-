@@ -71,6 +71,8 @@ from features.reminders import schedule_reminders
 from comments import register_handlers as register_comments_handlers
 from batch_upload import register_handlers as register_batch_handlers# 🆕
 from ai_insights import register_handlers as register_insights_handlers
+from features.describe_existing import register_handlers as register_desc_existing
+from features.books_list import register_handlers as register_books_list
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -237,6 +239,8 @@ def main() -> None:
     register_comments_handlers(application)
     register_batch_handlers(application)
     register_insights_handlers(application)
+    register_desc_existing(application)
+    register_books_list(application)
 
 
     # أمر تعيين مجموعة الملاحظات
