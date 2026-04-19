@@ -1,6 +1,7 @@
 # keyboards.py
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from features.describe_existing.keyboards import get_describe_button
+from features.describe_existing.keyboards import get_describe_button
 from comments.keyboards import get_comment_button
 
 # ---------- القوائم الرئيسية للمستخدم العادي ----------
@@ -88,6 +89,7 @@ def book_detail_keyboard(book_id: int, file_id: str = None, file_link: str = Non
         keyboard.append([InlineKeyboardButton("📥 تحميل الكتاب", callback_data=f"download_{book_id}")])
     elif file_link:
         keyboard.append([InlineKeyboardButton("🔗 رابط خارجي", url=file_link)])
+        keyboard.append([get_describe_button(book_id)])
     
     # صف المفضلة والتقييم
     fav_text = "❤️ إزالة من المفضلة" if is_favorite else "🤍 إضافة للمفضلة"
@@ -154,6 +156,7 @@ def admin_panel_keyboard():
         [InlineKeyboardButton("📣 إذاعة رسالة", callback_data="admin_broadcast")],
         [InlineKeyboardButton("🔍 بحث وإضافة كتاب", callback_data="admin_search_add_book")],
         [InlineKeyboardButton("📝 تخصيص الرسائل", callback_data="admin_custom_msgs")],
+        [InlineKeyboardButton("🔍 بحث متقدم", callback_data="admin_advanced_search")],
         [InlineKeyboardButton("🤖 أدوات ذكاء اصطناعي", callback_data="admin_ai_tools")],
         [InlineKeyboardButton("❌ إغلاق", callback_data="admin_close")]
     ]
