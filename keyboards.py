@@ -1,7 +1,6 @@
 # keyboards.py
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from features.describe_existing.keyboards import get_describe_button
-from features.describe_existing.keyboards import get_describe_button
 from comments.keyboards import get_comment_button
 
 # ---------- القوائم الرئيسية للمستخدم العادي ----------
