@@ -67,7 +67,9 @@ from features.referral import register_handlers as register_referral_handlers   
 from features.deep_link import register_handlers as register_deep_link_handlers
 from features.auto_description import register_handlers as register_desc_handlers      # 🆕
 from features.auto_category import register_handlers as register_cat_handlers          # 🆕
-from features.reminders import schedule_reminders                                      # 🆕
+from features.reminders import schedule_reminders     
+from comments import register_handlers as register_comments_handlers
+from batch_upload import register_handlers as register_batch_handlers# 🆕
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
 app = Flask(__name__)
 
@@ -231,6 +233,8 @@ def main() -> None:
     register_deep_link_handlers(application)
     register_desc_handlers(application)   # 🆕
     register_cat_handlers(application)    # 🆕
+    register_comments_handlers(application)
+    register_batch_handlers(application)
 
 
     # أمر تعيين مجموعة الملاحظات
