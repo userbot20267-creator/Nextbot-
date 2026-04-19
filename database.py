@@ -919,3 +919,102 @@ def save_book_description(book_id: int, description: str):
         with conn.cursor() as cur:
             cur.execute("UPDATE books SET description = %s WHERE id = %s", (description, book_id))
             conn.commit()
+# ========== دوال جديدة للميزات المتقدمة ==========
+
+def get_books_in_category(category_name: str) -> list:
+    """جلب الكتب في قسم معين (باستخدام اسم القسم)"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.id, b.title, a.name as author
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                WHERE c.name = %s
+            """, (category_name,))
+            return cur.fetchall()
+
+
+def move_book_to_category(book_id: int, new_category_id: int):
+    """نقل كتاب إلى قسم جديد (ينشئ نسخة جديدة من المؤلف في القسم الجديد إذا لزم الأمر)"""
+    book = get_book_by_id(book_id)
+    if not book:
+        return
+    title = book[1]
+    file_id = book[2]
+    file_link = book[3]
+    added_by = book[6] if len(book) > 6 else None
+
+    author_name = book[5]
+    # البحث عن المؤلف في القسم الجديد أو إنشاؤه
+    authors = get_authors_by_category(new_category_id)
+    author_id = None
+    for aid, name in authors:
+        if name.lower() == author_name.lower():
+            author_id = aid
+            break
+    if not author_id:
+        success, author_id = add_author(author_name, new_category_id)
+        if not success:
+            raise Exception("فشل إنشاء المؤلف في القسم الجديد")
+
+    # حذف الكتاب القديم وإضافته من جديد
+    delete_book(book_id)
+    add_book(title, author_id, file_id=file_id, file_link=file_link, added_by=added_by)
+
+
+def advanced_search_books(category_id=None, author_id=None, date_from=None, date_to=None,
+                          file_type=None, has_description=None) -> list:
+    """بحث متقدم مع فلاتر"""
+    query = """
+        SELECT b.id, b.title, b.file_id, b.file_link, b.download_count,
+               a.name as author_name, c.name as category_name, b.created_at
+        FROM books b
+        JOIN authors a ON b.author_id = a.id
+        JOIN categories c ON a.category_id = c.id
+        WHERE 1=1
+    """
+    params = []
+    if category_id:
+        query += " AND c.id = %s"
+        params.append(category_id)
+    if author_id:
+        query += " AND a.id = %s"
+        params.append(author_id)
+    if date_from:
+        query += " AND b.created_at >= %s"
+        params.append(date_from)
+    if date_to:
+        query += " AND b.created_at <= %s"
+        params.append(date_to)
+    if file_type == 'pdf':
+        query += " AND b.file_id IS NOT NULL"
+    elif file_type == 'link':
+        query += " AND b.file_link IS NOT NULL"
+    if has_description is True:
+        query += " AND b.description IS NOT NULL AND b.description != ''"
+    elif has_description is False:
+        query += " AND (b.description IS NULL OR b.description = '')"
+
+    query += " ORDER BY b.id DESC"
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            return cur.fetchall()
+
+
+def get_books_paginated(limit: int = 10, offset: int = 0) -> list:
+    """جلب الكتب مع التصفح (لأمر /books)"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.id, b.title, b.file_id, b.file_link, b.download_count,
+                       a.name as author_name, c.name as category_name
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                ORDER BY b.id DESC
+                LIMIT %s OFFSET %s
+            """, (limit, offset))
+            return cur.fetchall()
