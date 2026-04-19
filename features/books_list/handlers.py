@@ -21,6 +21,27 @@ async def list_books_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await show_books_page(update, context, page=0)
 
 
+def _get_book_field(book, index, default=""):
+    """استخراج حقل من كتاب سواء كان قاموساً أو tuple/list"""
+    if isinstance(book, dict):
+        # محاولة العثور على المفتاح المناسب حسب الفهرس
+        if index == 0:
+            return book.get('id') or book.get('book_id') or default
+        elif index == 1:
+            return book.get('title') or default
+        elif index == 5:
+            return book.get('author') or book.get('author_name') or default
+        elif index == 6:
+            return book.get('category') or book.get('category_name') or default
+        else:
+            return default
+    else:
+        # tuple أو list
+        if len(book) > index:
+            return book[index]
+        return default
+
+
 async def show_books_page(update: Update, context: ContextTypes.DEFAULT_TYPE, page: int):
     """عرض صفحة معينة من قائمة الكتب"""
     offset = page * BOOKS_PER_PAGE
@@ -43,10 +64,10 @@ async def show_books_page(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
     else:
         text = f"📚 *جميع الكتب (صفحة {page + 1} من {total_pages})*\n\n"
         for book in books:
-            book_id = book[0]
-            title = book[1]
-            author = book[5] if len(book) > 5 else "غير معروف"
-            category = book[6] if len(book) > 6 else "غير مصنف"
+            book_id = _get_book_field(book, 0)
+            title = _get_book_field(book, 1)
+            author = _get_book_field(book, 5, "غير معروف")
+            category = _get_book_field(book, 6, "غير مصنف")
             text += f"🆔 `{book_id}` | 📖 {title}\n✍️ {author} | 📁 {category}\n\n"
 
     keyboard = []
@@ -73,6 +94,8 @@ async def show_books_page(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup
         )
+
+
 async def books_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالج أزرار التنقل بين صفحات الكتب"""
     query = update.callback_query
