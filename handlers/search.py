@@ -2,7 +2,7 @@
 
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from services.scraper import download_file_to_telegram  # الدالة الجديدة
+from services.scraper import download_file_to_telegram
 from telegram.ext import (
     CallbackQueryHandler,
     MessageHandler,
@@ -23,18 +23,19 @@ from keyboards import (
 )
 from utils import check_user_subscription, get_required_channels_from_db
 
-# البحث المحسن الذي يدعم Internet Archive والغلاف
 from services.scraper import search_external_books_enhanced as search_external_books
-# نستورد download_file_from_url فقط للاحتفاظ بها (للاستخدامات الأخرى إن وجدت)
 from services.scraper import download_file_from_url
 
-# حالة المحادثة للبحث
+# حالات المحادثة
 WAITING_SEARCH_QUERY = 1
+WAITING_BOOK_SELECTION = 2  # حالة جديدة لانتظار اختيار المستخدم
+
+# عدد النتائج لكل صفحة
+RESULTS_PER_PAGE = 5
 
 
 # ---------- دوال مساعدة ----------
 def ensure_uncategorized_category() -> int:
-    """يتأكد من وجود قسم 'غير مصنف' ويعيد معرفه، ينشئه إذا لم يوجد"""
     categories = db.get_all_categories()
     for cat_id, name in categories:
         if name == "غير مصنف":
@@ -48,7 +49,6 @@ def ensure_uncategorized_category() -> int:
 
 
 def get_search_example() -> str:
-    """ترجع أمثلة على صيغ البحث الصحيحة"""
     return (
         "🔍 *أمثلة على صيغ البحث:*\n"
         "• `الخيميائي باولو كويلو`\n"
@@ -57,9 +57,7 @@ def get_search_example() -> str:
     )
 
 
-# ---------- بدء عملية البحث ----------
 async def search_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """يطلب من المستخدم إدخال اسم الكتاب + المؤلف"""
     query = update.callback_query
     await query.answer()
 
@@ -84,41 +82,60 @@ async def search_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return WAITING_SEARCH_QUERY
 
 
-# ---------- استقبال نص البحث وتنفيذه ----------
 async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """استقبال نص البحث والقيام بالبحث الداخلي والخارجي"""
+    """استقبال نص البحث وعرض النتائج كأزرار تفاعلية"""
     user_id = update.effective_user.id
     query_text = update.message.text.strip()
 
     db.update_activity(user_id)
 
+    # حفظ كلمة البحث في الجلسة
+    context.user_data['last_search_query'] = query_text
+    context.user_data['search_page'] = 0
+    context.user_data['search_results'] = None  # سيتم تخزين النتائج هنا
+
     # 1. البحث في قاعدة البيانات المحلية
     local_results = db.search_books(query_text)
 
-    # 2. البحث الخارجي (Internet Archive + Open Library + Google Books)
+    # 2. البحث الخارجي
     external_results = []
     if not local_results:
-        await update.message.reply_text(
+        status_msg = await update.message.reply_text(
             "🔎 *لم يتم العثور على نتائج محلية. جاري البحث في المصادر الخارجية...*",
             parse_mode=ParseMode.MARKDOWN
         )
         external_results = await search_external_books(query_text)
+        await status_msg.delete()
 
-        # ⬇️⬇️⬇️ تم تعطيل الأرشفة التلقائية بالكامل ⬇️⬇️⬇️
-        # (سيتم التعامل مع الكتب الخارجية عبر نظام طلب الموافقة لاحقًا)
-        # for item in external_results:
-        #     title, author, link, cover_url = item
-        #     cat_id = ensure_uncategorized_category()
-        #     success, author_id = db.add_author(author, cat_id)
-        #     if not success:
-        #         authors = db.get_authors_by_category(cat_id)
-        #         author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
-        #     if author_id:
-        #         db.add_book(title, author_id, file_link=link, added_by=user_id)
-        # ⬆️⬆️⬆️ نهاية التعطيل ⬆️⬆️⬆️
+    # دمج النتائج (محلية أولاً ثم خارجية)
+    all_results = []
+    
+    # تنسيق النتائج المحلية
+    for book in local_results:
+        book_id, title, file_id, file_link, downloads, author_name, category_name = book
+        all_results.append({
+            'type': 'local',
+            'id': book_id,
+            'title': title,
+            'author': author_name,
+            'category': category_name,
+            'file_id': file_id,
+            'file_link': file_link,
+            'downloads': downloads
+        })
+    
+    # تنسيق النتائج الخارجية
+    for ext in external_results:
+        title, author, link, cover_url = ext
+        all_results.append({
+            'type': 'external',
+            'title': title,
+            'author': author,
+            'link': link,
+            'cover_url': cover_url
+        })
 
-    # 3. عرض النتائج
-    if not local_results and not external_results:
+    if not all_results:
         await update.message.reply_text(
             f"❌ *لم يتم العثور على أي نتائج.*\n\n{get_search_example()}",
             reply_markup=main_menu(),
@@ -126,70 +143,229 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return ConversationHandler.END
 
-    # عرض النتائج المحلية (كتب موجودة بالفعل في البوت)
-    for book in local_results:
-        book_id, title, file_id, file_link, downloads, author_name, category_name = book
-        if file_id:
-            try:
-                await update.message.reply_document(
-                    document=file_id,
-                    caption=f"📖 *{title}*\n✍️ {author_name}",
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            except Exception as e:
-                await update.message.reply_text(f"❌ خطأ في إرسال الملف: {e}")
+    # حفظ النتائج في الجلسة
+    context.user_data['search_results'] = all_results
+    
+    # عرض النتائج الأولى
+    await show_search_results_page(update, context, page=0)
+    return WAITING_BOOK_SELECTION
 
-    # عرض النتائج الخارجية: تنزيل ورفع الملف مباشرة (بدون روابط)
-    for ext in external_results:
-        title, author, link, cover_url = ext
-        status_msg = await update.message.reply_text(
-            f"⏳ *جاري تنزيل وتجهيز:* {title}",
+
+async def show_search_results_page(update: Update, context: ContextTypes.DEFAULT_TYPE, page: int):
+    """عرض صفحة من نتائج البحث كأزرار تفاعلية"""
+    results = context.user_data.get('search_results', [])
+    query_text = context.user_data.get('last_search_query', '')
+    
+    if not results:
+        await update.message.reply_text("❌ لا توجد نتائج للعرض.")
+        return
+    
+    total_results = len(results)
+    total_pages = (total_results + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
+    
+    start_idx = page * RESULTS_PER_PAGE
+    end_idx = min(start_idx + RESULTS_PER_PAGE, total_results)
+    page_results = results[start_idx:end_idx]
+    
+    # بناء لوحة المفاتيح
+    keyboard = []
+    
+    for idx, book in enumerate(page_results, start=start_idx + 1):
+        # اختصار العنوان الطويل
+        display_title = book['title'][:35] + "..." if len(book['title']) > 35 else book['title']
+        display_author = book['author'][:20] + "..." if len(book['author']) > 20 else book['author']
+        
+        button_text = f"{idx}. 📖 {display_title} - {display_author}"
+        
+        # تخزين مؤقت للكتاب المختار
+        callback_data = f"select_book_{book['type']}_{start_idx + (idx - start_idx - 1)}"
+        keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
+    
+    # أزرار التنقل
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"search_page_{page - 1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(InlineKeyboardButton("التالي ➡️", callback_data=f"search_page_{page + 1}"))
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+    
+    # أزرار إضافية
+    keyboard.append([InlineKeyboardButton("🔄 بحث جديد", callback_data="new_search"), InlineKeyboardButton("🔙 إلغاء", callback_data="cancel_action")])
+    
+    # نص الرسالة
+    text = f"🔍 *نتائج البحث عن:* \"{query_text}\"\n"
+    text += f"📊 *عدد النتائج:* {total_results} | 📄 *الصفحة:* {page + 1}/{total_pages}\n\n"
+    text += "👇 *اختر الكتاب المناسب:*"
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
+    
+    context.user_data['search_page'] = page
+
+
+async def search_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """التنقل بين صفحات النتائج"""
+    query = update.callback_query
+    await query.answer()
+    
+    page = int(query.data.split("_")[-1])
+    await show_search_results_page(update, context, page)
+
+
+async def select_book_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عند اختيار كتاب من القائمة، عرض تفاصيله وأزرار التحميل"""
+    query = update.callback_query
+    await query.answer()
+    
+    # استخراج نوع الكتاب ومؤشره
+    parts = query.data.split("_")
+    book_type = parts[2]  # 'local' or 'external'
+    book_index = int(parts[3])
+    
+    results = context.user_data.get('search_results', [])
+    if book_index >= len(results):
+        await query.edit_message_text("❌ الكتاب غير موجود.")
+        return
+    
+    selected_book = results[book_index]
+    
+    # بناء نص التفاصيل
+    text = f"📖 *{selected_book['title']}*\n\n"
+    text += f"✍️ *المؤلف:* {selected_book['author']}\n"
+    
+    if 'category' in selected_book and selected_book['category']:
+        text += f"📂 *القسم:* {selected_book['category']}\n"
+    
+    if 'downloads' in selected_book:
+        text += f"📥 *مرات التحميل:* {selected_book['downloads']}\n"
+    
+    text += "\n👇 *ماذا تريد أن تفعل؟*"
+    
+    # بناء أزرار التفاعل
+    keyboard = []
+    
+    if book_type == 'local':
+        # كتاب موجود محلياً
+        if selected_book.get('file_id'):
+            keyboard.append([InlineKeyboardButton("📥 تحميل الكتاب", callback_data=f"download_local_{selected_book['id']}")])
+    else:
+        # كتاب خارجي - نعرض خيار التنزيل
+        keyboard.append([InlineKeyboardButton("📥 تنزيل الكتاب", callback_data=f"download_external_{book_index}")])
+    
+    keyboard.append([InlineKeyboardButton("🔍 بحث جديد", callback_data="new_search")])
+    keyboard.append([InlineKeyboardButton("🔙 العودة للنتائج", callback_data=f"back_to_results")])
+    
+    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def download_local_book(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """تحميل كتاب محلي موجود مسبقاً"""
+    query = update.callback_query
+    await query.answer()
+    
+    book_id = int(query.data.split("_")[-1])
+    
+    # جلب الكتاب من قاعدة البيانات
+    book = db.get_book_by_id(book_id)
+    if not book:
+        await query.edit_message_text("❌ الكتاب غير موجود.")
+        return
+    
+    # تحديث عداد التحميلات
+    db.increment_downloads(book_id)
+    
+    book_id, title, file_id, file_link, downloads, author_name, category_name = book
+    
+    if file_id:
+        try:
+            await query.message.reply_document(
+                document=file_id,
+                caption=f"📖 *{title}*\n✍️ {author_name}\n📥 تم التحميل {downloads + 1} مرة",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await query.edit_message_text(f"✅ تم إرسال كتاب *{title}*", parse_mode=ParseMode.MARKDOWN)
+        except Exception as e:
+            await query.edit_message_text(f"❌ خطأ في إرسال الملف: {e}")
+    elif file_link:
+        await query.edit_message_text(f"📥 رابط التحميل: {file_link}")
+    else:
+        await query.edit_message_text("❌ لا يوجد رابط أو ملف لهذا الكتاب.")
+
+
+async def download_external_book(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """تنزيل كتاب من مصدر خارجي وعرضه للمستخدم"""
+    query = update.callback_query
+    await query.answer()
+    
+    book_index = int(query.data.split("_")[-1])
+    results = context.user_data.get('search_results', [])
+    
+    if book_index >= len(results):
+        await query.edit_message_text("❌ الكتاب غير موجود.")
+        return
+    
+    book = results[book_index]
+    
+    status_msg = await query.edit_message_text(
+        f"⏳ *جاري تنزيل وتجهيز:* {book['title']}\nقد يستغرق هذا دقيقة.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    # تنزيل ورفع الملف
+    file_id = await download_file_to_telegram(context.bot, book['link'], update.effective_user.id)
+    
+    if file_id:
+        try:
+            await query.message.reply_document(
+                document=file_id,
+                caption=f"📖 *{book['title']}*\n✍️ {book['author']}\n\n✅ تم التنزيل بنجاح",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await status_msg.delete()
+        except Exception as e:
+            await status_msg.edit_text(f"❌ فشل إرسال الملف: {e}")
+    else:
+        await status_msg.edit_text(
+            f"❌ *تعذر تنزيل الكتاب:* {book['title']}\n"
+            f"قد يكون الرابط غير صالح أو الملف كبيراً جداً.",
             parse_mode=ParseMode.MARKDOWN
         )
 
-        # استخدام الدالة الجديدة للتنزيل والرفع
-        file_id = await download_file_to_telegram(context.bot, link, user_id)
 
-        if file_id:
-            # تم التنزيل والرفع بنجاح، أرسل الملف للمستخدم
-            try:
-                await update.message.reply_document(
-                    document=file_id,
-                    caption=f"📖 *{title}*\n✍️ {author}",
-                    parse_mode=ParseMode.MARKDOWN
-                )
-                await status_msg.delete()
-
-                # اختياري: حفظ الكتاب في قاعدة البيانات للمكتبة المحلية
-               # cat_id = ensure_uncategorized_category()
-            #    success, author_id = db.add_author(author, cat_id)
-            #    if not success:
-               #     authors = db.get_authors_by_category(cat_id)
-             #       author_id = next((a[0] for a in authors if a[1].lower() == author.lower()), None)
-           #     if author_id:
-            #        db.add_book(title, author_id, file_id=file_id, added_by=user_id)
-
-            except Exception as e:
-                await status_msg.edit_text(f"❌ فشل إرسال الملف: {e}")
-        else:
-            # فشل التنزيل، لا نرسل رابطاً - نعرض رسالة فقط
-            await status_msg.edit_text(
-                f"❌ *تعذر تنزيل الكتاب:* {title}\n"
-                f"قد يكون الرابط غير صالح أو الملف كبيراً جداً.",
-                parse_mode=ParseMode.MARKDOWN
-            )
-
-    await update.message.reply_text(
-        "✅ *تم عرض النتائج.*",
-        reply_markup=main_menu(),
-        parse_mode=ParseMode.MARKDOWN
-    )
-    return ConversationHandler.END
+async def back_to_results(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """العودة إلى قائمة نتائج البحث"""
+    query = update.callback_query
+    await query.answer()
+    
+    page = context.user_data.get('search_page', 0)
+    await show_search_results_page(update, context, page)
 
 
-# ---------- إلغاء البحث ----------
+async def new_search_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """زر 'بحث جديد' - يعيد بدء المحادثة"""
+    query = update.callback_query
+    await query.answer()
+    
+    # مسح بيانات البحث القديمة
+    context.user_data.pop('last_search_query', None)
+    context.user_data.pop('search_results', None)
+    context.user_data.pop('search_page', None)
+    
+    await search_prompt(update, context)
+
+
 async def cancel_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """إلغاء عملية البحث والعودة للقائمة الرئيسية"""
+    """إلغاء البحث والعودة للقائمة الرئيسية"""
+    # مسح بيانات البحث
+    context.user_data.pop('last_search_query', None)
+    context.user_data.pop('search_results', None)
+    context.user_data.pop('search_page', None)
+    
     if update.callback_query:
         query = update.callback_query
         await query.answer()
@@ -205,14 +381,6 @@ async def cancel_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 
-# ---------- معالجة طلب بحث جديد من نتائج سابقة ----------
-async def new_search_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """زر 'بحث جديد' داخل قائمة النتائج - يعيد بدء المحادثة"""
-    query = update.callback_query
-    await query.answer()
-    await search_prompt(update, context)
-
-
 # ---------- Handlers ----------
 search_conversation_handler = ConversationHandler(
     entry_points=[
@@ -222,14 +390,21 @@ search_conversation_handler = ConversationHandler(
         WAITING_SEARCH_QUERY: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, receive_search_query)
         ],
+        WAITING_BOOK_SELECTION: [
+            CallbackQueryHandler(search_page_callback, pattern="^search_page_"),
+            CallbackQueryHandler(select_book_callback, pattern="^select_book_"),
+            CallbackQueryHandler(download_local_book, pattern="^download_local_"),
+            CallbackQueryHandler(download_external_book, pattern="^download_external_"),
+            CallbackQueryHandler(back_to_results, pattern="^back_to_results$"),
+            CallbackQueryHandler(new_search_prompt, pattern="^new_search$"),
+        ],
     },
     fallbacks=[
         CallbackQueryHandler(cancel_search, pattern="^cancel_action$"),
         CommandHandler("cancel", cancel_search),
     ],
-    
 )
 
 search_callback_handlers = [
     CallbackQueryHandler(new_search_prompt, pattern="^search_prompt$"),
-]
+    ]
