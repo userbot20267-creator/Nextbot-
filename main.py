@@ -59,6 +59,8 @@ from handlers.points import show_points
 from handlers.admin_messages import custom_msg_handler
 from handlers.admin_users_list import list_all_users
 from handlers.admin_download import admin_download_handler
+# بعد باقي الاستيرادات، أضف هذا:
+from features.advanced_features.handlers import register_handlers as register_advanced_features
 from services.backup import run_backup
 
 # ---------- استيراد ميزات مجلد features ----------
@@ -100,6 +102,40 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+def init_database_tables():
+    """إنشاء الجداول المطلوبة تلقائياً عند تشغيل البوت"""
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                # إنشاء جدول طلبات الكتب
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS book_requests (
+                        id SERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        user_name VARCHAR(255),
+                        user_username VARCHAR(255),
+                        title VARCHAR(500) NOT NULL,
+                        author VARCHAR(255),
+                        status VARCHAR(50) DEFAULT 'pending',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_book_requests_status ON book_requests(status)")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_book_requests_user_id ON book_requests(user_id)")
+                
+                # جدول الأدمن (إذا لم يكن موجوداً)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS admins (
+                        id SERIAL PRIMARY KEY,
+                        user_id BIGINT UNIQUE NOT NULL,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                conn.commit()
+                print("✅ تم التحقق من جداول قاعدة البيانات")
+    except Exception as e:
+        print(f"⚠️ خطأ في تهيئة قاعدة البيانات: {e}")
 
 
 # ---------- معالج الأخطاء العام ----------
@@ -129,6 +165,9 @@ async def post_init(application: Application) -> None:
     logger.info("✅ تم تهيئة البوت بنجاح")
     db.init_db()
     logger.info("✅ تم التحقق من جداول قاعدة البيانات")
+    init_database_tables()  # إنشاء الجداول المطلوبة
+    db.init_db()
+    logger.info("✅ تم التحقق من جداول قاعدة البيانات")
 
     # جدولة المهام الدورية
     job_queue = application.job_queue
@@ -148,7 +187,7 @@ async def post_init(application: Application) -> None:
             name="auto_backup"
         )
         logger.info("✅ تمت جدولة مهمة النسخ الاحتياطي اليومي")
-
+    
         # 3. جدولة التقرير الأسبوعي (كل يوم أحد 9 صباحاً)
         schedule_weekly_report(application)
         logger.info("✅ تمت جدولة التقرير الأسبوعي")
@@ -247,6 +286,7 @@ def main() -> None:
     register_batch_handlers(application)
     register_insights_handlers(application)
     register_desc_existing(application)
+    register_advanced_features(application)
     register_books_list(application)
     # تسجيل الميزات الجديدة
     register_desc_existing(application)
