@@ -1018,3 +1018,239 @@ def get_books_paginated(limit: int = 10, offset: int = 0) -> list:
                 LIMIT %s OFFSET %s
             """, (limit, offset))
             return cur.fetchall()
+# ==================== دوال طلب الكتب (Book Requests) ====================
+
+def add_book_request(user_id: int, user_name: str, user_username: str, title: str, author: str) -> bool:
+    """إضافة طلب كتاب جديد"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("""
+                    INSERT INTO book_requests (user_id, user_name, user_username, title, author, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, 'pending', NOW())
+                """, (user_id, user_name, user_username, title, author))
+                conn.commit()
+                return True
+            except Exception as e:
+                print(f"Error adding book request: {e}")
+                return False
+
+
+def get_book_requests(limit: int = 10, offset: int = 0) -> list:
+    """جلب طلبات الكتب"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, user_id, user_name, user_username, title, author, status, created_at
+                FROM book_requests
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            """, (limit, offset))
+            return cur.fetchall()
+
+
+def count_book_requests() -> int:
+    """حساب عدد طلبات الكتب"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM book_requests")
+            return cur.fetchone()[0]
+
+
+def get_book_request(req_id: int) -> tuple:
+    """جلب طلب كتاب محدد"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, user_id, user_name, user_username, title, author, status, created_at
+                FROM book_requests WHERE id = %s
+            """, (req_id,))
+            return cur.fetchone()
+
+
+def update_request_status(req_id: int, status: str):
+    """تحديث حالة طلب الكتاب"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE book_requests SET status = %s WHERE id = %s", (status, req_id))
+            conn.commit()
+
+
+def delete_book_request(req_id: int):
+    """حذف طلب كتاب"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM book_requests WHERE id = %s", (req_id,))
+            conn.commit()
+
+
+# ==================== دوال مساعدة إضافية ====================
+
+def get_all_books() -> list:
+    """جلب جميع الكتب (لاقتراحات الذكاء الاصطناعي)"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.id, b.title, b.file_id, b.file_link, b.download_count,
+                       a.name as author_name, c.name as category_name
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                ORDER BY b.id
+            """)
+            return cur.fetchall()
+
+
+def get_book_by_title(title: str) -> tuple:
+    """جلب كتاب حسب عنوانه (للبحث)"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.id, b.title, b.file_id, b.file_link, b.download_count,
+                       a.name as author_name, c.name as category_name
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                WHERE b.title ILIKE %s
+                LIMIT 1
+            """, (f'%{title}%',))
+            return cur.fetchone()
+
+
+def get_book_by_id(book_id: int) -> tuple:
+    """جلب كتاب حسب معرفه"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.id, b.title, b.file_id, b.file_link, b.download_count,
+                       a.name as author_name, c.name as category_name
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                WHERE b.id = %s
+            """, (book_id,))
+            return cur.fetchone()
+
+
+def search_books_paginated(search_query: str, limit: int = 10, offset: int = 0) -> list:
+    """البحث عن الكتب مع التصفح"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.id, b.title, b.file_id, b.file_link, b.download_count,
+                       a.name as author_name, c.name as category_name
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                JOIN categories c ON a.category_id = c.id
+                WHERE b.title ILIKE %s OR a.name ILIKE %s
+                ORDER BY b.title
+                LIMIT %s OFFSET %s
+            """, (f'%{search_query}%', f'%{search_query}%', limit, offset))
+            return cur.fetchall()
+
+
+def count_search_results(search_query: str) -> int:
+    """حساب عدد نتائج البحث"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM books b
+                JOIN authors a ON b.author_id = a.id
+                WHERE b.title ILIKE %s OR a.name ILIKE %s
+            """, (f'%{search_query}%', f'%{search_query}%'))
+            return cur.fetchone()[0]
+
+
+def increment_downloads(book_id: int):
+    """زيادة عداد التحميلات للكتاب"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE books SET download_count = download_count + 1 WHERE id = %s", (book_id,))
+            conn.commit()
+
+
+def is_admin(user_id: int) -> bool:
+    """التحقق مما إذا كان المستخدم مشرفاً"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM admins WHERE user_id = %s", (user_id,))
+            return cur.fetchone() is not None
+
+
+def add_author(name: str, category_id: int) -> tuple:
+    """إضافة مؤلف جديد أو التحقق من وجوده"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # التحقق من وجود المؤلف
+            cur.execute("SELECT id FROM authors WHERE name ILIKE %s AND category_id = %s", (name, category_id))
+            existing = cur.fetchone()
+            if existing:
+                return True, existing[0]
+            
+            # إضافة مؤلف جديد
+            cur.execute("INSERT INTO authors (name, category_id) VALUES (%s, %s) RETURNING id", (name, category_id))
+            author_id = cur.fetchone()[0]
+            conn.commit()
+            return True, author_id
+
+
+def get_authors_by_category(category_id: int) -> list:
+    """جلب المؤلفين حسب القسم"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM authors WHERE category_id = %s ORDER BY name", (category_id,))
+            return cur.fetchall()
+
+
+def get_category_by_id(category_id: int) -> tuple:
+    """جلب القسم حسب معرفه"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM categories WHERE id = %s", (category_id,))
+            return cur.fetchone()
+
+
+def get_author_by_id(author_id: int) -> tuple:
+    """جلب المؤلف حسب معرفه"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM authors WHERE id = %s", (author_id,))
+            return cur.fetchone()
+
+
+def get_all_categories() -> list:
+    """جلب جميع الأقسام"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM categories ORDER BY name")
+            return cur.fetchall()
+
+
+def add_category(name: str) -> bool:
+    """إضافة قسم جديد"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("INSERT INTO categories (name) VALUES (%s)", (name,))
+                conn.commit()
+                return True
+            except Exception:
+                return False
+
+
+def add_book(title: str, author_id: int, file_id: str = None, file_link: str = None, 
+             description: str = "", added_by: int = None) -> bool:
+    """إضافة كتاب جديد"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("""
+                    INSERT INTO books (title, author_id, file_id, file_link, description, added_by, download_count)
+                    VALUES (%s, %s, %s, %s, %s, %s, 0)
+                """, (title, author_id, file_id, file_link, description, added_by))
+                conn.commit()
+                return True
+            except Exception as e:
+                print(f"Error adding book: {e}")
+                return False
