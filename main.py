@@ -247,7 +247,6 @@ def main() -> None:
     register_batch_handlers(application)
     register_insights_handlers(application)
     register_desc_existing(application)
-    register_advanced_search(application)
     register_books_list(application)
     # تسجيل الميزات الجديدة
     register_desc_existing(application)
