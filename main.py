@@ -81,6 +81,9 @@ from features.books_list import register_handlers as register_books_list
 from features.admin_advanced_search import register_handlers as register_adv_search
 from features.ai_recategorize import register_handlers as register_ai_recategorize
 # ---------- إعداد Flask لفتح منفذ وهمي (لحل مشكلة Web Service) ----------
+def register_advanced_search(application):
+    """دالة فارغة لتجنب خطأ NameError"""
+    pass
 app = Flask(__name__)
 
 @app.route('/')
