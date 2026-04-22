@@ -529,91 +529,27 @@ async def ai_new_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('ai_search_results', None)
     context.user_data.pop('ai_search_page', None)
     # ==================== دوال مساعدة للذكاء الاصطناعي ====================
-
-async def ai_suggest_books_by_mood(mood: str, books: list) -> list:
-    """استخدام AI لاقتراح كتب حسب المزاج"""
-    if not OPENROUTER_API_KEY:
-        return []
-    
-    # تحضير قائمة الكتب للنموذج
-    books_list = []
-    for book in books:
-        if isinstance(book, (list, tuple)) and len(book) > 5:
-            books_list.append(f"- {book[1]} ({book[5]})")
-        elif isinstance(book, dict):
-            books_list.append(f"- {book.get('title', '')} ({book.get('author', '')})")
-    
-    if not books_list:
-        return []
-    
-    books_text = "\n".join(books_list[:50])  # حد أقصى 50 كتاباً
-    
-    prompt = f"""أنت مساعد ذكي لمكتبة. المستخدم يشعر بـ "{mood}".
-من قائمة الكتب التالية، اقترح 3 كتب مناسبة لمزاجه.
-اختر الكتب التي تتناسب مع المزاج (مثلاً: كتب فكاهية للمزاج الحزين، كتب ملهمة للمزاج المتحمس، إلخ).
-
-قائمة الكتب:
-{books_text}
-
-أجب فقط بأسماء الكتب وأسماء المؤلفين، كل كتاب في سطر منفصل.
-مثال التنسيق:
-عنوان الكتاب 1 - المؤلف 1
-عنوان الكتاب 2 - المؤلف 2
-عنوان الكتاب 3 - المؤلف 3
-""
-    
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "meta-llama/llama-3.3-70b-instruct",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 300,
-                    "temperature": 0.7
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                content = data['choices'][0]['message']['content']
-                
-                # استخراج الكتب المقترحة
-                suggestions = []
-                for line in content.strip().split('\n'):
-                    if ' - ' in line:
-                        title, author = line.split(' - ', 1)
-                        suggestions.append((title.strip(), author.strip()))
-                
-                return suggestions[:3]
-    except Exception as e:
-        print(f"AI suggestion error: {e}")
-    
-    return []
 async def ai_search_books(query: str) -> list:
     """البحث عن كتب باستخدام OpenRouter API"""
     if not OPENROUTER_API_KEY:
         return []
     
-    prompt = f"""ابحث عن كتب حول الموضوع التالي: "{query}"
-قم بتقديم 4-6 كتب مناسبة، مع المعلومات التالية لكل كتاب:
-- العنوان
-- المؤلف
-- القسم المقترح
-- وصف قصير (جملة واحدة)
+    prompt = f"""Search for books about: "{query}"
+Provide 4-6 suitable books with the following information for each book:
+- Title
+- Author
+- Suggested category
+- Short description (one sentence)
 
-استخدم التنسيق التالي لكل كتاب:
-=== كتاب ===
-العنوان: [العنوان]
-المؤلف: [المؤلف]
-القسم: [القسم]
-الوصف: [الوصف القصير]
-=== نهاية الكتاب ===
-""
+Use this format for each book:
+=== Book ===
+Title: [title]
+Author: [author]
+Category: [category]
+Description: [short description]
+=== End Book ===
+\"""
+"""
     
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
@@ -635,20 +571,19 @@ async def ai_search_books(query: str) -> list:
                 data = response.json()
                 content = data['choices'][0]['message']['content']
                 
-                # استخراج الكتب من النص
                 books = []
                 current_book = {}
                 
                 for line in content.split('\n'):
                     line = line.strip()
-                    if line.startswith('العنوان:'):
-                        current_book['title'] = line.replace('العنوان:', '').strip()
-                    elif line.startswith('المؤلف:'):
-                        current_book['author'] = line.replace('المؤلف:', '').strip()
-                    elif line.startswith('القسم:'):
-                        current_book['category'] = line.replace('القسم:', '').strip()
-                    elif line.startswith('الوصف:'):
-                        current_book['description'] = line.replace('الوصف:', '').strip()
+                    if line.startswith('Title:'):
+                        current_book['title'] = line.replace('Title:', '').strip()
+                    elif line.startswith('Author:'):
+                        current_book['author'] = line.replace('Author:', '').strip()
+                    elif line.startswith('Category:'):
+                        current_book['category'] = line.replace('Category:', '').strip()
+                    elif line.startswith('Description:'):
+                        current_book['description'] = line.replace('Description:', '').strip()
                     elif '===' in line and current_book.get('title'):
                         books.append(current_book)
                         current_book = {}
@@ -662,6 +597,8 @@ async def ai_search_books(query: str) -> list:
         print(f"AI search error: {e}")
     
     return []
+
+
 async def ensure_category(category_name: str) -> int:
     """التأكد من وجود القسم وإرجاع معرفه"""
     categories = db.get_all_categories()
@@ -702,8 +639,11 @@ async def view_book_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("🎭 اقتراح آخر", callback_data="mood_again")],
         [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]
     ]
+    
+    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
 
-  async def cancel_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def cancel_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """إلغاء عام للمحادثات"""
     if update.callback_query:
         query = update.callback_query
@@ -712,8 +652,9 @@ async def view_book_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         await update.message.reply_text("❌ تم الإلغاء.", reply_markup=main_menu())
     return ConversationHandler.END
-    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard))
-    # ==================== تسجيل المعالجات ====================
+
+
+# ==================== تسجيل المعالجات ====================
 
 def register_handlers(application):
     """تسجيل جميع معالجات الميزات المتقدمة"""
@@ -766,3 +707,4 @@ def register_handlers(application):
     
     # معالج المزاج مرة أخرى
     application.add_handler(CallbackQueryHandler(mood_again, pattern="^mood_again$"))
+    
