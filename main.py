@@ -223,6 +223,7 @@ def main() -> None:
     # --- تسجيل معالجات الميزات الجديدة المضافة حديثاً ---
     # 1. أوامر المستخدم الجديدة
     application.add_handler(CommandHandler(["me", "points"], show_points))
+    application.add_handler(CallbackQueryHandler(show_points, pattern="^my_points$"))
     
     # 2. معالجات Callback للمستخدم (المفضلة، السجل، التقييم، التلخيص)
     application.add_handler(CallbackQueryHandler(show_favorites, pattern="^my_favorites$"))

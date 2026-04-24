@@ -65,12 +65,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # --- رسالة الترحيب للمستخدم المشترك ---
-    await update.message.reply_text(
-        f"👋 *أهلاً بك {first_name} في مكتبة البوت الذكية!*\n\n"
-        "يمكنك تصفح الأقسام، البحث عن كتاب، أو استكشاف آلاف الكتب.",
-        reply_markup=main_menu(),
-        parse_mode=ParseMode.MARKDOWN
-    )
+    if book_id_to_send:
+        # إذا كان هناك معرف كتاب، اعرض تفاصيله
+        book = db.get_book_by_id(book_id_to_send)
+        if book:
+            from keyboards import book_detail_keyboard
+            book_id, title, file_id, file_link, downloads, author_name, category_name = book
+            message_text = (
+                f"📘 *{title}*\n"
+                f"✍️ المؤلف: {author_name}\n"
+                f"📁 القسم: {category_name}\n"
+                f"⬇️ عدد التحميلات: {downloads}\n"
+            )
+            keyboard = book_detail_keyboard(book_id, file_id, file_link)
+            await update.message.reply_text(
+                message_text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await update.message.reply_text("❌ الكتاب المطلوب غير موجود.", reply_markup=main_menu(), parse_mode=ParseMode.MARKDOWN)
+    else:
+        await update.message.reply_text(
+            f"👋 *أهلاً بك {first_name} في مكتبة البوت الذكية!*\n\n"
+            "يمكنك تصفح الأقسام، البحث عن كتاب، أو استكشاف آلاف الكتب.",
+            reply_markup=main_menu(),
+            parse_mode=ParseMode.MARKDOWN
+        )
 
 
 async def check_subscription_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

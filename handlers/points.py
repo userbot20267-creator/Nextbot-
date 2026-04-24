@@ -2,7 +2,18 @@ from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 from database import get_connection
 
+from keyboards import main_menu
+
 async def show_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    # تحديد ما إذا كان التحديث من رسالة أو استدعاء زر
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        is_callback = True
+    else:
+        is_callback = False
     user_id = update.effective_user.id
     
     with get_connection() as conn:
@@ -23,7 +34,10 @@ async def show_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💡 يمكنك زيادة نقاطك من خلال تحميل الكتب وتقييمها باستمرار!"
     )
     
-    await update.message.reply_text(text, parse_mode="Markdown")
+    if is_callback:
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+    else:
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=main_menu())
 
 async def add_points(user_id: int, points: int = 1):
     """Utility function to add points to a user."""

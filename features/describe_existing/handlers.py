@@ -53,7 +53,7 @@ async def describe_existing_book(update: Update, context: ContextTypes.DEFAULT_T
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ قبول الوصف", callback_data="accept_desc")],
         [InlineKeyboardButton("✏️ تعديل الوصف", callback_data="edit_desc")],
-        [InlineKeyboardButton("❌ إلغاء", callback_data="cancel_desc")]
+        [InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")]
     ])
 
     await query.edit_message_text(
