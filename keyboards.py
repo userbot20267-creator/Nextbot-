@@ -1,7 +1,8 @@
 # keyboards.py
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from comments.keyboards import get_comment_button
-from features.describe_existing.keyboards import get_describe_button
+
+# ملاحظة: تم حذف import get_describe_button من هنا لمنع الاستيراد الدائري
 
 # ---------- القوائم الرئيسية للمستخدم العادي ----------
 def main_menu():
@@ -72,7 +73,6 @@ def books_keyboard(books, author_id: int):
     """عرض كتب مؤلف معين"""
     keyboard = []
     for book_id, title, file_id, file_link, downloads in books:
-        # نستخدم callback_data يحتوي على book_id وعملية التحميل
         keyboard.append([InlineKeyboardButton(f"📖 {title}", callback_data=f"book_{book_id}")])
     
     keyboard.append([InlineKeyboardButton("🔙 العودة للمؤلفين", callback_data=f"back_authors_{author_id}")])
@@ -81,6 +81,10 @@ def books_keyboard(books, author_id: int):
 
 def book_detail_keyboard(book_id: int, file_id: str = None, file_link: str = None, is_favorite: bool = False):
     """أزرار تفاصيل الكتاب: تحميل، مفضلة، تقييم، تلخيص - [محدثة]"""
+    
+    # --- استيراد محلي لكسر الحلقة الدائرية ---
+    from features.describe_existing.keyboards import get_describe_button
+    
     keyboard = []
     
     # صف التحميل
@@ -100,13 +104,13 @@ def book_detail_keyboard(book_id: int, file_id: str = None, file_link: str = Non
     # صف التلخيص
     keyboard.append([InlineKeyboardButton("📝 تلخيص الكتاب (AI)", callback_data=f"summarize_book_{book_id}")])
     
-    # صف كتب مشابهة (جديد)
+    # صف كتب مشابهة
     keyboard.append([InlineKeyboardButton("📚 كتب مشابهة", callback_data=f"similar_books_{book_id}")])
-    # صف مشاركة (جديد)
+    # صف مشاركة
     keyboard.append([InlineKeyboardButton("🔗 مشاركة الكتاب", callback_data=f"share_book_{book_id}")])
-    # صف التعليقات (جديد)
+    # صف التعليقات
     keyboard.append([get_comment_button(book_id)])
-    # زر توليد وصف (جديد)
+    # زر توليد وصف
     keyboard.append([get_describe_button(book_id)])
     keyboard.append([InlineKeyboardButton("🔙 العودة للكتب", callback_data=f"back_books_{book_id}")])
     return InlineKeyboardMarkup(keyboard)
@@ -128,13 +132,12 @@ def search_results_keyboard(results):
     """عرض نتائج البحث (داخلية + خارجية)"""
     keyboard = []
     for idx, book in enumerate(results):
-        # book قد يكون من قاعدة البيانات أو من API خارجي
-        if len(book) >= 4:  # من قاعدة البيانات: (id, title, file_id, file_link, downloads, author, category)
+        if len(book) >= 4:
             book_id = book[0]
             title = book[1]
             author = book[5]
             keyboard.append([InlineKeyboardButton(f"{title} - {author}", callback_data=f"book_{book_id}")])
-        else:  # نتيجة خارجية: (title, author, link)
+        else:
             title, author, link = book
             keyboard.append([InlineKeyboardButton(f"{title} - {author} (خارجي)", url=link)])
     
@@ -144,7 +147,7 @@ def search_results_keyboard(results):
 
 # ---------- لوحة تحكم المالك (/admin) ----------
 def admin_panel_keyboard():
-    """القائمة الرئيسية للوحة التحكم - تم تحديثها"""
+    """القائمة الرئيسية للوحة التحكم"""
     keyboard = [
         [InlineKeyboardButton("📁 إدارة الأقسام", callback_data="admin_categories")],
         [InlineKeyboardButton("📚 إدارة الكتب", callback_data="admin_books")],
@@ -161,7 +164,6 @@ def admin_panel_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- أقسام الإدارة الفرعية ---
 def admin_categories_keyboard(categories):
     """عرض الأقسام مع خيارات إدارة"""
     keyboard = []
@@ -195,7 +197,7 @@ def admin_books_management_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 def admin_users_keyboard():
-    """قائمة إدارة المستخدمين - تم تحديثها"""
+    """قائمة إدارة المستخدمين"""
     keyboard = [
         [InlineKeyboardButton("🚫 حظر مستخدم", callback_data="admin_ban_user")],
         [InlineKeyboardButton("✅ فك الحظر", callback_data="admin_unban_user")],
@@ -207,7 +209,7 @@ def admin_users_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 def admin_channels_keyboard(channels):
-    """عرض القنوات الإجبارية مع إمكانية الحذف"""
+    """عرض القنوات الإجبارية"""
     keyboard = []
     for ch in channels:
         keyboard.append([
@@ -215,7 +217,7 @@ def admin_channels_keyboard(channels):
             InlineKeyboardButton("❌ حذف", callback_data=f"adm_delch_{ch}")
         ])
     keyboard.append([InlineKeyboardButton("➕ إضافة قناة", callback_data="admin_add_channel")])
-    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")])
+    keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")] )
     return InlineKeyboardMarkup(keyboard)
 
 def admin_stats_keyboard():
@@ -227,6 +229,7 @@ def admin_stats_keyboard():
         [InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
 def admin_ai_tools_keyboard():
     keyboard = [
         [InlineKeyboardButton("📝 توليد وصف تلقائي", callback_data="generate_description")],
@@ -234,40 +237,32 @@ def admin_ai_tools_keyboard():
         [InlineKeyboardButton("🔙 رجوع", callback_data="admin_back")]
     ]
     return InlineKeyboardMarkup(keyboard)
-# ---------- أزرار الاشتراك الإجباري ----------
+
 def subscription_required_keyboard(channels):
-    """يُعرض للمستخدم الذي لم يشترك في القنوات المطلوبة"""
+    """أزرار الاشتراك الإجباري"""
     keyboard = []
     for idx, channel in enumerate(channels):
-        # إضافة زر لكل قناة
-        if channel.startswith('@'):
-            url = f"https://t.me/{channel[1:]}"
-        else:
-            url = f"https://t.me/{channel}"  # في حال كان معرف القناة بدون @
+        url = f"https://t.me/{channel.lstrip('@')}"
         keyboard.append([InlineKeyboardButton(f"📢 اشترك في القناة {idx+1}", url=url)])
     
     keyboard.append([InlineKeyboardButton("✅ تحققت من الاشتراك", callback_data="check_subscription")])
     return InlineKeyboardMarkup(keyboard)
 
-# ---------- أزرار عامة (إلغاء، تأكيد) ----------
 def confirm_cancel_keyboard(action: str = ""):
     """زري تأكيد وإلغاء"""
-    keyboard = [
-        [
-            InlineKeyboardButton("✅ نعم", callback_data=f"confirm_{action}"),
-            InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")
-        ]
-    ]
+    keyboard = [[
+        InlineKeyboardButton("✅ نعم", callback_data=f"confirm_{action}"),
+        InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")
+    ]]
     return InlineKeyboardMarkup(keyboard)
 
 def cancel_only_keyboard():
-    """زر إلغاء فقط (لحالات إدخال النص)"""
+    """زر إلغاء فقط"""
     keyboard = [[InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")]]
     return InlineKeyboardMarkup(keyboard)
 
-# ---------- أزرار إدارة الكتب من داخل القسم ----------
 def admin_category_books_keyboard(cat_id: int):
-    """أزرار إدارة الكتب المرتبطة بقسم معين"""
+    """إدارة الكتب داخل قسم"""
     keyboard = [
         [InlineKeyboardButton("➕ إضافة كتاب للقسم", callback_data=f"adm_addbook_cat_{cat_id}")],
         [InlineKeyboardButton("📋 عرض كتب القسم", callback_data=f"adm_listbooks_cat_{cat_id}")],
@@ -276,19 +271,17 @@ def admin_category_books_keyboard(cat_id: int):
     return InlineKeyboardMarkup(keyboard)
 
 def admin_select_author_keyboard(authors, cat_id: int):
-    """عرض قائمة المؤلفين لاختيار مؤلف عند إضافة كتاب"""
+    """اختيار مؤلف عند الإضافة"""
     keyboard = []
     for author_id, author_name in authors:
         keyboard.append([InlineKeyboardButton(author_name, callback_data=f"adm_selauthor_{author_id}_{cat_id}")])
     keyboard.append([InlineKeyboardButton("➕ إضافة مؤلف جديد", callback_data=f"adm_newauthor_{cat_id}")])
     keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data=f"adm_cat_{cat_id}")])
     return InlineKeyboardMarkup(keyboard)
+
 def get_book_keyboard(book_id: int, is_favorite: bool = False):
-    """
-    واجهة متوافقة مع الاستدعاءات القديمة.
-    تقوم بجلب معلومات الكتاب من قاعدة البيانات لإنشاء لوحة المفاتيح.
-    """
-    from database import get_connection  # استيراد محلي لتجنب الدوران
+    """جلب معلومات الكتاب لإنشاء لوحة المفاتيح"""
+    from database import get_connection
     
     file_id = None
     file_link = None
@@ -298,7 +291,7 @@ def get_book_keyboard(book_id: int, is_favorite: bool = False):
             cur.execute("SELECT file_id, file_link FROM books WHERE id = %s", (book_id,))
             row = cur.fetchone()
             if row:
-                file_id = row['file_id']    # ✅ استخدم المفتاح بدلاً من الفهرس
-                file_link = row['file_link'] # ✅ استخدم المفتاح بدلاً من الفهرس
+                file_id = row.get('file_id') or row[0]
+                file_link = row.get('file_link') or row[1]
     
     return book_detail_keyboard(book_id, file_id, file_link, is_favorite)
