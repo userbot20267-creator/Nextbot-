@@ -10,6 +10,6 @@ def schedule_reminders(application):
         job_queue.run_daily(
             reminder_callback,
             time=datetime.time(hour=10, minute=0, tzinfo=datetime.timezone.utc),
-            days_of_week=(0, 2, 4, 6),   # تم التعديل: days -> days_of_week
+            days=(0, 2, 4, 6),
             name="incomplete_books_reminder"
         )
