@@ -11,6 +11,6 @@ def schedule_weekly_report(application):
         job_queue.run_daily(
             weekly_report_callback,
             time=datetime.time(hour=9, minute=0, tzinfo=datetime.timezone.utc),
-            days=(6,),
+            days_of_week=(6,),  # تم التعديل: days -> days_of_week
             name="weekly_report"
         )
