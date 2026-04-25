@@ -11,7 +11,8 @@ from telegram.ext import (
 from telegram.constants import ParseMode
 import database as db
 from .services import generate_description
-from keyboards import cancel_only_keyboard
+
+# ملاحظة: تم حذف import cancel_only_keyboard من هنا لمنع الاستيراد الدائري
 
 # حالة المحادثة
 WAITING_DESCRIPTION = 1
@@ -22,7 +23,7 @@ async def describe_existing_book(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     await query.answer()
 
-    # استخراج book_id من callback_data (مثال: describe_existing_123)
+    # استخراج book_id من callback_data
     try:
         book_id = int(query.data.split("_")[-1])
     except (IndexError, ValueError):
@@ -82,6 +83,9 @@ async def handle_description_decision(update: Update, context: ContextTypes.DEFA
         return ConversationHandler.END
 
     elif choice == "edit_desc":
+        # --- استيراد محلي هنا لكسر الحلقة الدائرية ---
+        from keyboards import cancel_only_keyboard
+        
         # الانتقال إلى وضع إدخال وصف مخصص
         await query.edit_message_text(
             "✏️ *أرسل الوصف الجديد الذي تريده:*\n\n(يمكنك إرسال /cancel للإلغاء)",
